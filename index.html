@@ -1,0 +1,1286 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>PureScan AI — Dermatologue v6.0</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --clr:  #00E676;
+            --clr2: #00B0FF;
+            --glow: rgba(0,230,118,0.35);
+            --bg-glass: rgba(5,10,20,0.88);
+            --bg-panel: rgba(8,14,26,0.97);
+            --border:   rgba(255,255,255,0.09);
+            --hud:  'Orbitron', monospace;
+            --body: 'Rajdhani', sans-serif;
+            --panel-h: 56vh;
+        }
+        *, *::before, *::after {
+            box-sizing: border-box; margin: 0; padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+        html, body {
+            width: 100%; height: 100%;
+            background: #000; color: #fff;
+            font-family: var(--body);
+            overflow: hidden;
+        }
+
+        /* CAMERA */
+        #cam {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            width: 100vw; height: 100vh; object-fit: cover; z-index: 0;
+        }
+        #capture-canvas { display: none; }
+
+        /* SCAN LINE */
+        #scan-line {
+            position: fixed; left: 0; right: 0; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--clr), transparent);
+            box-shadow: 0 0 12px var(--clr);
+            z-index: 5; top: -4px; opacity: 0; pointer-events: none;
+        }
+        #scan-line.go { animation: scanSwipe 1.6s ease-in-out forwards; }
+        @keyframes scanSwipe {
+            0%   { top: 0; opacity: 0; }
+            4%   { opacity: 1; }
+            96%  { opacity: 1; }
+            100% { top: 100vh; opacity: 0; }
+        }
+
+        /* VIGNETTE */
+        #vignette {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(ellipse at center, transparent 20%, rgba(0,0,0,0.72) 80%);
+            z-index: 2; pointer-events: none;
+        }
+
+        /* BRACKETS */
+        .bk { position: fixed; width: 36px; height: 36px; z-index: 6; pointer-events: none; }
+        .bk::before, .bk::after { content:''; position: absolute; background: var(--clr); transition: background 0.4s; }
+        .bk::before { width: 100%; height: 2px; top: 0; left: 0; }
+        .bk::after  { width: 2px; height: 100%; top: 0; left: 0; }
+        .bk.tl { top: 20px; left: 20px; }
+        .bk.tr { top: 20px; right: 20px; } .bk.tr::after { left: auto; right: 0; }
+        .bk.bl { bottom: calc(var(--panel-h) + 6px); left: 20px; } .bk.bl::before { top: auto; bottom: 0; }
+        .bk.br { bottom: calc(var(--panel-h) + 6px); right: 20px; }
+        .bk.br::before { top: auto; bottom: 0; } .bk.br::after { left: auto; right: 0; }
+
+        /* HEADER HUD — FIX: fallback padding avant max() */
+        #hud-top {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+            display: -webkit-flex; display: flex;
+            -webkit-flex-direction: column; flex-direction: column;
+            -webkit-align-items: center; align-items: center;
+            padding-top: 22px;
+            padding-top: max(22px, env(safe-area-inset-top));
+            padding-bottom: 10px; pointer-events: none;
+        }
+        .hud-title { font-family: var(--hud); font-size: 1rem; font-weight: 900; letter-spacing: 7px; color: #fff; }
+        .hud-sub   { font-size: 0.62rem; letter-spacing: 3px; color: rgba(255,255,255,0.35); margin-top: 2px; }
+        .hud-badge {
+            margin-top: 5px; font-family: var(--hud); font-size: 0.56rem;
+            letter-spacing: 2px; padding: 3px 12px;
+            border: 1px solid var(--clr); border-radius: 20px; color: var(--clr);
+            animation: badgePulse 2.5s ease-in-out infinite;
+        }
+        @keyframes badgePulse { 0%,100%{box-shadow:0 0 6px var(--glow)} 50%{box-shadow:0 0 18px var(--glow)} }
+
+        /* GAUGE */
+        #gauge-zone {
+            position: fixed; top: 50%; left: 50%;
+            -webkit-transform: translate(-50%, calc(-50% - var(--panel-h)/2 + 8px));
+            transform: translate(-50%, calc(-50% - var(--panel-h)/2 + 8px));
+            z-index: 8;
+        }
+        .gw { position: relative; width: 185px; height: 185px; display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; -webkit-justify-content: center; justify-content: center; }
+        .gsvg { position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; -webkit-transform: rotate(-90deg); transform: rotate(-90deg); }
+        .g-track { fill: none; stroke: rgba(255,255,255,0.07); stroke-width: 10; }
+        .g-fill  { fill: none; stroke: var(--clr); stroke-width: 10; stroke-linecap: round;
+                   stroke-dasharray: 565; stroke-dashoffset: 565;
+                   -webkit-transition: stroke-dashoffset 1s cubic-bezier(.25,.8,.25,1), stroke 0.4s;
+                   transition: stroke-dashoffset 1s cubic-bezier(.25,.8,.25,1), stroke 0.4s;
+                   filter: drop-shadow(0 0 7px var(--clr)); }
+        .g-inner {
+            width: 148px; height: 148px; border-radius: 50%;
+            background: var(--bg-glass);
+            -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);
+            border: 1px solid rgba(255,255,255,0.06);
+            display: -webkit-flex; display: flex;
+            -webkit-flex-direction: column; flex-direction: column;
+            -webkit-align-items: center; align-items: center;
+            -webkit-justify-content: center; justify-content: center;
+        }
+        .g-num { font-family: var(--hud); font-size: 3.2rem; font-weight: 900; line-height: 1;
+                 color: var(--clr); text-shadow: 0 0 18px var(--glow);
+                 -webkit-transition: color 0.4s, text-shadow 0.4s;
+                 transition: color 0.4s, text-shadow 0.4s; }
+        .g-lbl { font-family: var(--hud); font-size: 0.52rem; letter-spacing: 3px; color: rgba(255,255,255,0.35); margin-top: 4px; }
+
+        /* BOTTOM PANEL */
+        #bottom-panel {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            height: var(--panel-h);
+            background: var(--bg-panel);
+            border-top: 1px solid var(--border);
+            border-radius: 20px 20px 0 0;
+            z-index: 20;
+            display: -webkit-flex; display: flex;
+            -webkit-flex-direction: column; flex-direction: column;
+        }
+
+        /* TAB BAR */
+        .tab-bar {
+            display: -webkit-flex; display: flex;
+            -webkit-flex-shrink: 0; flex-shrink: 0;
+            border-bottom: 1px solid var(--border);
+            overflow-x: auto; scrollbar-width: none;
+        }
+        .tab-bar::-webkit-scrollbar { display: none; }
+        .tab-btn {
+            -webkit-flex: 0 0 auto; flex: 0 0 auto;
+            padding: 10px 13px 8px;
+            font-family: var(--hud); font-size: 0.52rem;
+            letter-spacing: 2px; text-transform: uppercase;
+            color: rgba(255,255,255,0.32);
+            border: none; background: none; cursor: pointer;
+            border-bottom: 2px solid transparent;
+            -webkit-transition: color 0.2s, border-color 0.2s;
+            transition: color 0.2s, border-color 0.2s;
+            white-space: nowrap; -webkit-appearance: none;
+        }
+        .tab-btn.active { color: var(--clr); border-bottom-color: var(--clr); }
+
+        /* TAB PANES */
+        .tab-panes {
+            -webkit-flex: 1; flex: 1;
+            overflow: hidden; position: relative; min-height: 0;
+        }
+        .tab-pane {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            overflow-y: auto; -webkit-overflow-scrolling: touch;
+            padding: 13px 15px;
+            opacity: 0; pointer-events: none;
+            -webkit-transition: opacity 0.2s; transition: opacity 0.2s;
+        }
+        /* FIX: pointer-events valeur standard 'auto' */
+        .tab-pane.active { opacity: 1; pointer-events: auto; }
+        #tab-chat {
+            padding: 0;
+            display: -webkit-flex; display: flex;
+            -webkit-flex-direction: column; flex-direction: column;
+        }
+
+        /* SCAN TAB */
+        .api-row {
+            display: -webkit-flex; display: flex;
+            -webkit-align-items: center; align-items: center;
+            margin-bottom: 11px;
+        }
+        .api-row > * + * { margin-left: 8px; }
+        .api-lbl { font-size: 0.6rem; color: rgba(255,255,255,0.3); letter-spacing: 1px; white-space: nowrap; }
+        .api-row input {
+            -webkit-flex: 1; flex: 1;
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 6px; padding: 8px 11px; color: #fff;
+            font-family: var(--body); font-size: 0.8rem; outline: none;
+            -webkit-transition: border-color 0.2s; transition: border-color 0.2s;
+            -webkit-appearance: none;
+        }
+        .api-row input:focus { border-color: var(--clr); }
+        .api-row input::-webkit-input-placeholder { color: rgba(255,255,255,0.22); }
+        .api-row input::placeholder { color: rgba(255,255,255,0.22); }
+
+        .diag-status {
+            text-align: center; font-family: var(--hud); font-size: 0.82rem; font-weight: 700;
+            letter-spacing: 3px; text-transform: uppercase; color: var(--clr);
+            margin-bottom: 10px; min-height: 1.3em;
+            -webkit-transition: color 0.4s; transition: color 0.4s;
+        }
+        .metrics {
+            display: -webkit-flex; display: flex;
+            -webkit-flex-direction: column; flex-direction: column;
+            margin-bottom: 12px;
+        }
+        .metrics > * + * { margin-top: 6px; }
+        .metric-row {
+            display: -webkit-flex; display: flex;
+            -webkit-align-items: center; align-items: center;
+        }
+        .m-name { font-size: 0.75rem; color: rgba(255,255,255,0.58); -webkit-flex: 1; flex: 1; }
+        .m-track-wrap { width: 90px; margin: 0 7px; }
+        .m-track { height: 4px; background: rgba(255,255,255,0.07); border-radius: 2px; overflow: hidden; }
+        .m-fill  { height: 100%; border-radius: 2px; width: 0%; background: var(--clr);
+                   -webkit-transition: width 0.7s ease-out, background 0.4s;
+                   transition: width 0.7s ease-out, background 0.4s; }
+        .m-pct   { font-family: var(--hud); font-size: 0.62rem; color: var(--clr); text-align: right; width: 32px;
+                   -webkit-transition: color 0.4s; transition: color 0.4s; }
+
+        #btn-scan {
+            width: 100%; padding: 12px; background: transparent;
+            border: 1.5px solid var(--clr); border-radius: 8px;
+            color: var(--clr); font-family: var(--hud); font-size: 0.78rem;
+            font-weight: 700; letter-spacing: 3px; text-transform: uppercase;
+            cursor: pointer; box-shadow: 0 0 14px var(--glow);
+            -webkit-transition: all 0.2s; transition: all 0.2s;
+            -webkit-appearance: none;
+        }
+        #btn-scan:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        /* GENERIC CONTENT */
+        .s-title {
+            font-family: var(--hud); font-size: 0.6rem; letter-spacing: 3px;
+            text-transform: uppercase; color: var(--clr);
+            margin: 13px 0 7px;
+            padding-bottom: 5px; border-bottom: 1px solid rgba(255,255,255,0.07);
+        }
+        .s-title:first-child { margin-top: 0; }
+        .card {
+            background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 10px; padding: 11px 13px; margin-bottom: 8px;
+        }
+        .card p { font-size: 0.83rem; line-height: 1.55; color: rgba(255,255,255,0.72); font-weight: 300; }
+        .ctitle { font-family: var(--hud); font-size: 0.57rem; letter-spacing: 2px; color: rgba(255,255,255,0.38); margin-bottom: 5px; }
+
+        .skin-badge {
+            display: inline-block; padding: 4px 14px;
+            border: 1px solid var(--clr2); border-radius: 20px;
+            font-family: var(--hud); font-size: 0.62rem; letter-spacing: 2px;
+            color: var(--clr2); margin-bottom: 9px;
+        }
+        /* FIX: gap remplacé par margin pour compatibilité */
+        .tags { display: -webkit-flex; display: flex; -webkit-flex-wrap: wrap; flex-wrap: wrap; margin-bottom: 7px; }
+        .tags > * { margin: 0 4px 4px 0; }
+        .tag { padding: 3px 9px; border-radius: 20px; font-size: 0.73rem; border: 1px solid rgba(255,255,255,0.12); color: rgba(255,255,255,0.65); }
+        .tag.w { border-color: rgba(255,235,59,0.4); color: #FFEB3B; background: rgba(255,235,59,0.06); }
+        .tag.r { border-color: rgba(255,82,82,0.4);  color: #FF5252; background: rgba(255,82,82,0.06); }
+        .tag.g { border-color: rgba(0,230,118,0.4);  color: #00E676; background: rgba(0,230,118,0.06); }
+
+        /* STEPS */
+        .step {
+            display: -webkit-flex; display: flex;
+            -webkit-align-items: flex-start; align-items: flex-start;
+            background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 10px; padding: 11px; margin-bottom: 7px;
+        }
+        .step > * + * { margin-left: 11px; }
+        .snum {
+            -webkit-flex-shrink: 0; flex-shrink: 0;
+            width: 26px; height: 26px; border-radius: 50%;
+            background: linear-gradient(135deg, var(--clr), var(--clr2));
+            display: -webkit-flex; display: flex;
+            -webkit-align-items: center; align-items: center;
+            -webkit-justify-content: center; justify-content: center;
+            font-family: var(--hud); font-size: 0.6rem; font-weight: 700; color: #000;
+        }
+        .sbody { -webkit-flex: 1; flex: 1; min-width: 0; }
+        .stitle { font-family: var(--hud); font-size: 0.62rem; letter-spacing: 1px; color: rgba(255,255,255,0.88); margin-bottom: 3px; }
+        .sdesc  { font-size: 0.79rem; color: rgba(255,255,255,0.58); line-height: 1.5; font-weight: 300; }
+        .smeta  { margin-top: 3px; font-size: 0.67rem; color: var(--clr); font-family: var(--hud); }
+
+        /* PRODUCTS */
+        .prod-list { display: -webkit-flex; display: flex; -webkit-flex-wrap: wrap; flex-wrap: wrap; margin-bottom: 10px; }
+        .prod-list > * { margin: 0 4px 4px 0; }
+        .pi { padding: 4px 11px; border-radius: 6px; font-size: 0.76rem; border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.7); }
+        .pi.y { border-color: rgba(0,230,118,0.35); background: rgba(0,230,118,0.07); }
+        .pi.n { border-color: rgba(255,82,82,0.35);  background: rgba(255,82,82,0.07);  color: #FF8A80; }
+        .pi.a { border-color: rgba(0,176,255,0.35);  background: rgba(0,176,255,0.07);  color: #80D8FF; }
+
+        /* ROUTINE GRID */
+        .rgrid { display: -webkit-flex; display: flex; margin-bottom: 8px; }
+        .rgrid > div { -webkit-flex: 1; flex: 1; }
+        .rgrid > div + div { margin-left: 7px; }
+        .rhead { font-family: var(--hud); font-size: 0.55rem; letter-spacing: 2px; margin-bottom: 5px; padding: 4px 8px; border-radius: 6px; }
+        .rhead.am { background: rgba(255,235,59,0.08); color: #FFEB3B; }
+        .rhead.pm { background: rgba(100,100,255,0.08); color: #9E9EFF; }
+        .rstep { font-size: 0.75rem; color: rgba(255,255,255,0.58); padding: 2px 0; border-bottom: 1px solid rgba(255,255,255,0.04); line-height: 1.4; }
+
+        /* EMPTY */
+        .empty { display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column; -webkit-align-items: center; align-items: center; -webkit-justify-content: center; justify-content: center; padding: 28px 20px; opacity: 0.42; }
+        .empty .ico { font-size: 1.8rem; margin-bottom: 7px; }
+        .empty p { font-size: 0.78rem; text-align: center; line-height: 1.5; }
+
+        /* CHAT — FIX: min-height:0 pour Safari iOS flex overflow */
+        #chat-scroll {
+            -webkit-flex: 1; flex: 1; min-height: 0;
+            overflow-y: auto; -webkit-overflow-scrolling: touch;
+            padding: 12px 15px;
+        }
+        #chat-msgs { display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column; }
+        #chat-msgs > * + * { margin-top: 9px; }
+        .msg { max-width: 88%; padding: 9px 12px; border-radius: 14px; font-size: 0.8rem; line-height: 1.55; font-weight: 300; }
+        .msg.u { -webkit-align-self: flex-end; align-self: flex-end; background: rgba(0,230,118,0.12); border: 1px solid rgba(0,230,118,0.25); border-bottom-right-radius: 4px; }
+        .msg.b { -webkit-align-self: flex-start; align-self: flex-start; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09); color: rgba(255,255,255,0.8); border-bottom-left-radius: 4px; }
+        .msg.b .mh { font-family: var(--hud); font-size: 0.52rem; letter-spacing: 2px; color: var(--clr); margin-bottom: 5px; }
+        .typing-dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,0.4); margin: 0 2px; animation: blink 1.2s infinite; }
+        .typing-dot:nth-child(2) { animation-delay: .2s; }
+        .typing-dot:nth-child(3) { animation-delay: .4s; }
+        @keyframes blink { 0%,80%,100%{opacity:.2} 40%{opacity:1} }
+
+        #chat-bar {
+            display: -webkit-flex; display: flex;
+            -webkit-flex-shrink: 0; flex-shrink: 0;
+            padding: 9px 15px;
+            padding-bottom: 9px;
+            padding-bottom: max(9px, env(safe-area-inset-bottom));
+            border-top: 1px solid var(--border);
+        }
+        #chat-bar > * + * { margin-left: 8px; }
+        #chat-input {
+            -webkit-flex: 1; flex: 1;
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 20px; padding: 8px 15px; color: #fff;
+            font-family: var(--body); font-size: 0.82rem; outline: none;
+            -webkit-transition: border-color 0.2s; transition: border-color 0.2s;
+            -webkit-appearance: none;
+        }
+        #chat-input:focus { border-color: var(--clr); }
+        #chat-input::-webkit-input-placeholder { color: rgba(255,255,255,0.22); }
+        #chat-input::placeholder { color: rgba(255,255,255,0.22); }
+        #chat-send {
+            width: 38px; height: 38px; border-radius: 50%; border: none;
+            -webkit-flex-shrink: 0; flex-shrink: 0;
+            background: linear-gradient(135deg, var(--clr), var(--clr2));
+            color: #000; cursor: pointer; font-size: 0.95rem;
+            display: -webkit-flex; display: flex;
+            -webkit-align-items: center; align-items: center;
+            -webkit-justify-content: center; justify-content: center;
+            -webkit-transition: -webkit-transform .15s, opacity .2s;
+            transition: transform .15s, opacity .2s;
+            -webkit-appearance: none;
+        }
+        #chat-send:active  { -webkit-transform: scale(0.9); transform: scale(0.9); }
+        #chat-send:disabled { opacity: .35; cursor: not-allowed; }
+
+        /* Scrollbars slim */
+        .tab-pane::-webkit-scrollbar { width: 2px; }
+        .tab-pane::-webkit-scrollbar-track { background: transparent; }
+        .tab-pane::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+        #chat-scroll::-webkit-scrollbar { width: 2px; }
+        #chat-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); }
+
+        /* ═══ ROUTINE SAINE ═══ */
+        .clean-score-row {
+            display: -webkit-flex; display: flex;
+            -webkit-align-items: center; align-items: center;
+            background: rgba(0,230,118,0.06); border: 1px solid rgba(0,230,118,0.2);
+            border-radius: 12px; padding: 12px 15px; margin-bottom: 10px;
+        }
+        .clean-score-row > * + * { margin-left: 12px; }
+        .clean-score-info { -webkit-flex: 1; flex: 1; }
+        .clean-score-title { font-family: var(--hud); font-size: 0.62rem; letter-spacing: 2px; color: rgba(255,255,255,0.5); margin-bottom: 2px; }
+        .clean-score-label { font-size: 0.9rem; font-weight: 700; color: var(--clr); }
+
+        .ing-card { border-radius: 10px; padding: 11px 13px; margin-bottom: 7px; border: 1px solid rgba(255,255,255,0.07); background: rgba(255,255,255,0.03); }
+        .ing-header { display: -webkit-flex; display: flex; -webkit-justify-content: space-between; justify-content: space-between; -webkit-align-items: center; align-items: center; margin-bottom: 4px; }
+        .ing-name   { font-family: var(--hud); font-size: 0.62rem; letter-spacing: 1px; color: #fff; }
+        .ing-badge  { font-size: 0.6rem; padding: 2px 8px; border-radius: 20px; font-family: var(--hud); letter-spacing: 1px; border: 1px solid; }
+        .ing-badge.safe { color: #00E676; border-color: rgba(0,230,118,0.4);  background: rgba(0,230,118,0.06); }
+        .ing-badge.mod  { color: #FFEB3B; border-color: rgba(255,235,59,0.4); background: rgba(255,235,59,0.05); }
+        .ing-badge.opt  { color: #aaa;    border-color: rgba(255,255,255,0.2); background: transparent; }
+        .ing-desc { font-size: 0.78rem; color: rgba(255,255,255,0.52); line-height: 1.5; font-weight: 300; }
+        .ing-alt  { margin-top: 4px; font-size: 0.72rem; color: #00B0FF; font-style: italic; }
+
+        .prod-sain { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 10px; padding: 11px 13px; margin-bottom: 7px; }
+        .prod-sain-header { display: -webkit-flex; display: flex; -webkit-justify-content: space-between; justify-content: space-between; -webkit-align-items: flex-start; align-items: flex-start; margin-bottom: 5px; }
+        .prod-sain-name { font-family: var(--hud); font-size: 0.62rem; letter-spacing: 1px; color: #fff; -webkit-flex: 1; flex: 1; padding-right: 8px; }
+        .clean-star { font-size: 0.62rem; color: #FFEB3B; white-space: nowrap; font-family: var(--hud); letter-spacing: 1px; }
+        .prod-sain-desc { font-size: 0.78rem; color: rgba(255,255,255,0.55); line-height: 1.5; font-weight: 300; margin-bottom: 4px; }
+        .prod-sain-ing { display: -webkit-flex; display: flex; -webkit-flex-wrap: wrap; flex-wrap: wrap; }
+        .prod-sain-ing > * { margin: 0 4px 4px 0; }
+        .pi-sain { font-size: 0.68rem; padding: 2px 8px; border-radius: 20px; border: 1px solid rgba(0,230,118,0.3); color: #00E676; background: rgba(0,230,118,0.05); }
+
+        .ban-table { border-radius: 10px; border: 1px solid rgba(255,255,255,0.07); overflow: hidden; margin-bottom: 8px; }
+        .ban-row   { padding: 8px 11px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+        .ban-row:last-child { border-bottom: none; }
+        .ban-top   { display: -webkit-flex; display: flex; -webkit-justify-content: space-between; justify-content: space-between; -webkit-align-items: center; align-items: center; margin-bottom: 3px; }
+        .ban-name  { font-size: 0.8rem; color: rgba(255,255,255,0.7); }
+        .ban-risk  { font-size: 0.65rem; padding: 2px 7px; border-radius: 20px; white-space: nowrap; border: 1px solid rgba(255,82,82,0.4); color: #FF8A80; background: rgba(255,82,82,0.06); margin-left: 6px; }
+        .ban-why   { font-size: 0.72rem; color: rgba(255,255,255,0.38); line-height: 1.4; }
+
+        .diy-card  { background: rgba(0,176,255,0.04); border: 1px solid rgba(0,176,255,0.15); border-radius: 10px; padding: 11px 13px; margin-bottom: 7px; }
+        .diy-title { font-family: var(--hud); font-size: 0.6rem; letter-spacing: 2px; color: #00B0FF; margin-bottom: 4px; }
+        .diy-desc  { font-size: 0.78rem; color: rgba(255,255,255,0.6); line-height: 1.55; font-weight: 300; }
+        .phase-icon { margin-right: 5px; }
+    </style>
+</head>
+<body>
+
+<!-- ═══ ÉCRAN AUTORISATION CAMÉRA ═══ -->
+<div id="perm-screen" style="
+    position:fixed;top:0;left:0;right:0;bottom:0;z-index:100;
+    background:linear-gradient(160deg,#020810 0%,#051428 60%,#020810 100%);
+    display:-webkit-flex;display:flex;
+    -webkit-flex-direction:column;flex-direction:column;
+    -webkit-align-items:center;align-items:center;
+    -webkit-justify-content:center;justify-content:center;
+    text-align:center;padding:32px;
+">
+    <!-- Icône animée -->
+    <div style="position:relative;margin-bottom:28px;">
+        <div id="perm-ring" style="
+            width:100px;height:100px;border-radius:50%;
+            border:2px solid rgba(0,230,118,0.2);
+            position:absolute;top:-10px;left:-10px;
+            width:120px;height:120px;
+            animation:permPulse 2s ease-in-out infinite;
+        "></div>
+        <div style="
+            width:100px;height:100px;border-radius:50%;
+            background:rgba(0,230,118,0.08);
+            border:1.5px solid rgba(0,230,118,0.35);
+            display:-webkit-flex;display:flex;
+            -webkit-align-items:center;align-items:center;
+            -webkit-justify-content:center;justify-content:center;
+            font-size:2.6rem;
+        ">📷</div>
+    </div>
+
+    <!-- Texte -->
+    <div style="font-family:'Orbitron',monospace;font-size:1rem;font-weight:900;
+        letter-spacing:5px;color:#fff;margin-bottom:10px;">
+        PURESCAN AI
+    </div>
+    <div style="font-family:'Orbitron',monospace;font-size:0.6rem;letter-spacing:3px;
+        color:rgba(0,230,118,0.8);margin-bottom:24px;">
+        DERMATOLOGUE CLINIQUE
+    </div>
+
+    <div style="max-width:300px;margin-bottom:10px;">
+        <p style="font-family:'Rajdhani',sans-serif;font-size:0.95rem;font-weight:500;
+            color:rgba(255,255,255,0.9);line-height:1.65;margin-bottom:8px;">
+            Pour analyser votre peau, PureScan AI a besoin d'accéder à votre caméra.
+        </p>
+        <p style="font-family:'Rajdhani',sans-serif;font-size:0.78rem;
+            color:rgba(255,255,255,0.38);line-height:1.6;">
+            Aucune image n'est stockée sur nos serveurs.<br>
+            L'analyse est effectuée en temps réel.
+        </p>
+    </div>
+
+    <!-- Points de confiance -->
+    <div style="display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column;
+        -webkit-align-items:flex-start;align-items:flex-start;
+        background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);
+        border-radius:12px;padding:14px 18px;margin-bottom:28px;width:100%;max-width:300px;">
+        <div class="perm-point">🔒&nbsp; Données traitées localement</div>
+        <div class="perm-point">🚫&nbsp; Aucun stockage d'images</div>
+        <div class="perm-point">🎯&nbsp; Caméra utilisée uniquement au scan</div>
+    </div>
+
+    <!-- Bouton principal -->
+    <button id="perm-btn" style="
+        width:100%;max-width:300px;padding:15px;
+        background:linear-gradient(135deg,#00E676,#00B0FF);
+        border:none;border-radius:10px;
+        font-family:'Orbitron',monospace;font-size:0.78rem;
+        font-weight:700;letter-spacing:4px;color:#000;
+        cursor:pointer;-webkit-appearance:none;
+        box-shadow:0 0 24px rgba(0,230,118,0.4);
+        -webkit-transition:opacity 0.2s;transition:opacity 0.2s;
+        margin-bottom:14px;
+    ">AUTORISER LA CAMÉRA</button>
+
+    <button id="perm-skip" style="
+        background:none;border:none;color:rgba(255,255,255,0.25);
+        font-family:'Rajdhani',sans-serif;font-size:0.78rem;
+        cursor:pointer;-webkit-appearance:none;letter-spacing:1px;
+        padding:6px 12px;
+    ">Continuer sans caméra</button>
+
+    <div id="perm-status" style="
+        margin-top:16px;min-height:20px;
+        font-family:'Orbitron',monospace;font-size:0.6rem;
+        letter-spacing:2px;color:rgba(255,255,255,0.4);
+    "></div>
+</div>
+
+<style>
+.perm-point {
+    font-family:'Rajdhani',sans-serif;font-size:0.8rem;
+    color:rgba(255,255,255,0.55);padding:3px 0;
+}
+.perm-point+.perm-point { margin-top:4px; }
+@keyframes permPulse {
+    0%,100%{transform:scale(1);opacity:0.4;}
+    50%{transform:scale(1.12);opacity:0.15;}
+}
+</style>
+
+<!-- Vidéo + canvas (cachés jusqu'à autorisation) -->
+<video id="cam" autoplay playsinline webkit-playsinline muted></video>
+<!-- Overlay d'erreur caméra -->
+<div id="cam-overlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:50;background:rgba(0,0,0,0.92);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);text-align:center;padding:30px;">
+  <div style="font-size:2.5rem;margin-bottom:18px;">📷</div>
+  <div id="cam-overlay-title" style="font-family:'Orbitron',monospace;font-size:0.85rem;letter-spacing:3px;color:#FF5252;margin-bottom:12px;">ACCÈS CAMÉRA REQUIS</div>
+  <div id="cam-overlay-msg" style="font-size:0.82rem;color:rgba(255,255,255,0.6);line-height:1.7;max-width:300px;margin-bottom:22px;font-weight:300;"></div>
+  <button id="cam-retry-btn" style="font-family:'Orbitron',monospace;font-size:0.72rem;letter-spacing:3px;padding:12px 24px;border:1.5px solid #00E676;border-radius:8px;color:#00E676;background:transparent;cursor:pointer;-webkit-appearance:none;">↺ RÉESSAYER</button>
+</div>
+<canvas id="capture-canvas"></canvas>
+<div id="vignette"></div>
+<!-- Bouton flip caméra -->
+<button id="btn-flip" title="Changer de caméra" style="
+    position:fixed; top:0; right:16px; z-index:15;
+    background:rgba(5,10,20,0.72); border:1px solid rgba(255,255,255,0.18);
+    border-radius:50%; width:44px; height:44px;
+    color:#fff; font-size:1.1rem; cursor:pointer;
+    display:-webkit-flex; display:flex;
+    -webkit-align-items:center; align-items:center;
+    -webkit-justify-content:center; justify-content:center;
+    -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
+    -webkit-transition:opacity 0.2s; transition:opacity 0.2s;
+    padding:0; margin-top:0;
+    top: 14px;
+    top: max(14px, env(safe-area-inset-top));
+    -webkit-appearance:none;
+">🔄</button>
+<div id="scan-line"></div>
+<div class="bk tl"></div><div class="bk tr"></div>
+<div class="bk bl"></div><div class="bk br"></div>
+
+<div id="hud-top">
+    <div class="hud-title">PureScan AI</div>
+    <div class="hud-sub">Dermatologue Clinique v6.0</div>
+    <div class="hud-badge">PIXTRAL · MISTRAL LARGE · CLEAN BEAUTY</div>
+</div>
+
+<div id="gauge-zone">
+    <div class="gw">
+        <svg class="gsvg" viewBox="0 0 185 185">
+            <circle class="g-track" cx="92.5" cy="92.5" r="87"/>
+            <circle class="g-fill" id="g-fill" cx="92.5" cy="92.5" r="87"/>
+        </svg>
+        <div class="g-inner">
+            <div class="g-num" id="g-num">--</div>
+            <div class="g-lbl">Score Peau</div>
+        </div>
+    </div>
+</div>
+
+<div id="bottom-panel">
+    <div class="tab-bar">
+        <button class="tab-btn active" data-tab="scan">⬡ Scan</button>
+        <button class="tab-btn" data-tab="rapport">Rapport</button>
+        <button class="tab-btn" data-tab="nettoyage">Nettoyage</button>
+        <button class="tab-btn" data-tab="produits">Produits</button>
+        <button class="tab-btn" data-tab="routine">🌿 Routine</button>
+        <button class="tab-btn" data-tab="traitement">Traitement</button>
+        <button class="tab-btn" data-tab="chat">💬 Chat</button>
+    </div>
+    <div class="tab-panes">
+        <div class="tab-pane active" id="tab-scan">
+            <div class="api-row">
+                <span class="api-lbl">CLÉ API</span>
+                <input type="password" id="api-key" placeholder="Clé Mistral AI..." autocomplete="off">
+            </div>
+            <div class="diag-status" id="status-text">PRÊT POUR LE SCAN</div>
+            <div class="metrics">
+                <div class="metric-row"><span class="m-name">Charge Bactérienne</span><div class="m-track-wrap"><div class="m-track"><div class="m-fill" id="b-bacteria"></div></div></div><span class="m-pct" id="p-bacteria">—</span></div>
+                <div class="metric-row"><span class="m-name">Traces Fongiques</span><div class="m-track-wrap"><div class="m-track"><div class="m-fill" id="b-fungi"></div></div></div><span class="m-pct" id="p-fungi">—</span></div>
+                <div class="metric-row"><span class="m-name">Sébum / Résidus</span><div class="m-track-wrap"><div class="m-track"><div class="m-fill" id="b-sebum"></div></div></div><span class="m-pct" id="p-sebum">—</span></div>
+                <div class="metric-row"><span class="m-name">Hydratation</span><div class="m-track-wrap"><div class="m-track"><div class="m-fill" id="b-hydration"></div></div></div><span class="m-pct" id="p-hydration">—</span></div>
+            </div>
+            <button id="btn-scan">▶ LANCER L'ANALYSE DERMATOLOGIQUE</button>
+        </div>
+        <div class="tab-pane" id="tab-rapport"><div id="rapport-content"><div class="empty"><div class="ico">🔬</div><p>Lancez un scan pour obtenir le rapport dermatologique complet.</p></div></div></div>
+        <div class="tab-pane" id="tab-nettoyage"><div id="nettoyage-content"><div class="empty"><div class="ico">💧</div><p>Le protocole de nettoyage personnalisé apparaîtra ici après l'analyse.</p></div></div></div>
+        <div class="tab-pane" id="tab-produits"><div id="produits-content"><div class="empty"><div class="ico">🧴</div><p>Les recommandations produits apparaîtront ici après l'analyse.</p></div></div></div>
+        <div class="tab-pane" id="tab-routine"><div id="routine-content"><div class="empty"><div class="ico">🌿</div><p>L'agent Clean Beauty définira votre routine avec les produits les plus sains possible.</p></div></div></div>
+        <div class="tab-pane" id="tab-traitement"><div id="traitement-content"><div class="empty"><div class="ico">💊</div><p>Le plan de traitement personnalisé apparaîtra ici après l'analyse.</p></div></div></div>
+        <div class="tab-pane" id="tab-chat">
+            <div id="chat-scroll">
+                <div id="chat-msgs">
+                    <div class="msg b"><div class="mh">DR. PURESCAN · IA DERMATOLOGIQUE</div>Bonjour ! Je suis votre dermatologue IA. Lancez une analyse puis posez-moi vos questions sur les soins, les produits naturels ou votre routine.</div>
+                </div>
+            </div>
+            <div id="chat-bar">
+                <input type="text" id="chat-input" placeholder="Posez votre question..." autocomplete="off">
+                <button id="chat-send">➤</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+/* ═══ STATE ═══ */
+var skinData = null, dermData = null, routineData = null;
+var chatHist = [], chatApiKey = '';
+var busy = false, chatBusy = false;
+var _ldTimer = null;
+
+/* ═══ TABS ═══ */
+function initTabs() {
+    var btns  = document.querySelectorAll('.tab-btn');
+    var panes = document.querySelectorAll('.tab-pane');
+    for (var i = 0; i < btns.length; i++) {
+        (function(btn) {
+            btn.addEventListener('click', function() {
+                for (var j = 0; j < btns.length;  j++) btns[j].classList.remove('active');
+                for (var j = 0; j < panes.length; j++) panes[j].classList.remove('active');
+                btn.classList.add('active');
+                var p = document.getElementById('tab-' + btn.getAttribute('data-tab'));
+                if (p) p.classList.add('active');
+            });
+        })(btns[i]);
+    }
+}
+
+/* ═══ CAMERA ═══ */
+var video       = document.getElementById('cam');
+var cv          = document.getElementById('capture-canvas');
+var cx          = cv.getContext('2d');
+var camStream   = null;
+var cameraReady = false;
+var cameraError = false;
+
+function markReady() {
+    if (!cameraReady && video.videoWidth > 0) {
+        cameraReady = true;
+        hideCamOverlay();
+        setStatus('PRÊT POUR LE SCAN', null);
+    }
+}
+
+/* ── Messages d'erreur précis selon le type ── */
+function camErrMsg(name) {
+    if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+        return { title: 'PERMISSION REFUSÉE', msg: 'Autorisez l\'accès à la caméra dans les réglages de votre navigateur, puis appuyez sur Réessayer.' };
+    }
+    if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+        return { title: 'AUCUNE CAMÉRA', msg: 'Aucune caméra détectée sur cet appareil.' };
+    }
+    if (name === 'NotReadableError' || name === 'TrackStartError') {
+        return { title: 'CAMÉRA OCCUPÉE', msg: 'La caméra est utilisée par une autre application. Fermez-la puis réessayez.' };
+    }
+    if (name === 'OverconstrainedError' || name === 'ConstraintNotSatisfiedError') {
+        return { title: 'CONFIGURATION', msg: 'Contraintes caméra non supportées. Réessai automatique...' };
+    }
+    if (name === 'SecurityError') {
+        return { title: 'CONTEXTE NON SÉCURISÉ', msg: 'La caméra nécessite HTTPS. Ouvrez cette page depuis un serveur HTTPS ou localhost.' };
+    }
+    return { title: 'ERREUR CAMÉRA', msg: 'Erreur inattendue (' + name + '). Vérifiez les permissions et rechargez.' };
+}
+
+function showCamOverlay(title, msg, showRetry) {
+    var ov = document.getElementById('cam-overlay');
+    document.getElementById('cam-overlay-title').textContent = title;
+    document.getElementById('cam-overlay-msg').textContent   = msg;
+    document.getElementById('cam-retry-btn').style.display = showRetry ? 'block' : 'none';
+    ov.style.webkitFlexDirection = 'column';
+    ov.style.flexDirection       = 'column';
+    ov.style.webkitAlignItems    = 'center';
+    ov.style.alignItems          = 'center';
+    ov.style.webkitJustifyContent = 'center';
+    ov.style.justifyContent      = 'center';
+    ov.style.display = '-webkit-flex';
+    ov.style.display = 'flex';
+}
+function hideCamOverlay() {
+    document.getElementById('cam-overlay').style.display = 'none';
+}
+
+/* ── Vérifie la permission caméra via Permissions API si dispo,
+   sinon tente getUserMedia directement ── */
+function checkPermissionAndSetup() {
+    // Permissions API disponible (Chrome, Edge, Firefox récent)
+    if (navigator.permissions && navigator.permissions.query) {
+        navigator.permissions.query({ name: 'camera' }).then(function(result) {
+            if (result.state === 'granted') {
+                // Déjà autorisé → on saute l'écran de permission
+                hidePerm();
+                setupCamera();
+            } else if (result.state === 'denied') {
+                // Refusé → afficher directement le message d'erreur
+                hidePerm();
+                showCamOverlay('PERMISSION REFUSÉE',
+                    'La caméra a été bloquée. Autorisez-la dans les réglages de votre navigateur (icône 🔒 dans la barre d\'adresse) puis rechargez.',
+                    false
+                );
+                cameraError = true;
+            } else {
+                // 'prompt' → montrer notre écran d'autorisation
+                showPerm();
+            }
+            // Écouter les changements de permission (ex: l'utilisateur l'accorde en dehors)
+            result.onchange = function() {
+                if (result.state === 'granted') { hidePerm(); setupCamera(); }
+                if (result.state === 'denied')  { hidePerm(); showCamOverlay('PERMISSION REFUSÉE', 'La caméra a été bloquée dans les réglages navigateur.', false); cameraError = true; }
+            };
+        }).catch(function() {
+            // Permissions API non supportée ou erreur → écran d'autorisation par défaut
+            showPerm();
+        });
+    } else {
+        // Pas de Permissions API (Safari < 16, vieux Android) → écran d'autorisation direct
+        showPerm();
+    }
+}
+
+function showPerm() {
+    document.getElementById('perm-screen').style.display = '-webkit-flex';
+    document.getElementById('perm-screen').style.display = 'flex';
+}
+function hidePerm() {
+    document.getElementById('perm-screen').style.display = 'none';
+}
+
+function setupCamera() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        showCamOverlay(
+            'CAMÉRA NON DISPONIBLE',
+            'Votre navigateur ne supporte pas l\'accès caméra. Utilisez Chrome, Safari ou Firefox récent en HTTPS.',
+            false
+        );
+        cameraError = true; return;
+    }
+
+    video.addEventListener('timeupdate',     markReady);
+    video.addEventListener('playing',        markReady);
+    video.addEventListener('canplaythrough', markReady);
+    video.addEventListener('canplay',        markReady);
+
+    var pollId = setInterval(function() {
+        if (video.videoWidth > 0 && video.readyState >= 2) { markReady(); clearInterval(pollId); }
+    }, 200);
+
+    requestCamera();
+}
+
+// 'environment' = caméra arrière, 'user' = caméra avant
+var currentFacing = 'environment';
+
+function requestCamera() {
+    requestCameraWith(currentFacing);
+}
+
+function requestCameraWith(facing) {
+    cameraError  = false;
+    cameraReady  = false;
+    hideCamOverlay();
+
+    // Construire les options de fallback selon la caméra demandée
+    var opts;
+    if (facing === 'user') {
+        opts = [
+            { video: { facingMode: { exact: 'user' } }, audio: false },
+            { video: { facingMode: 'user' }, audio: false },
+            { video: true, audio: false }
+        ];
+    } else {
+        opts = [
+            { video: { facingMode: { exact: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
+            { video: { facingMode: 'environment' }, audio: false },
+            { video: true, audio: false }
+        ];
+    }
+
+    function tryNext(i, lastErr) {
+        if (i >= opts.length) {
+            var info = camErrMsg(lastErr || 'Unknown');
+            showCamOverlay(info.title, info.msg, true);
+            cameraError = true;
+            return;
+        }
+        navigator.mediaDevices.getUserMedia(opts[i]).then(function(stream) {
+            if (camStream) {
+                camStream.getTracks().forEach(function(t){ t.stop(); });
+            }
+            camStream   = stream;
+            cameraReady = false;
+            video.srcObject = stream;
+            video.setAttribute('playsinline', '');
+            video.setAttribute('webkit-playsinline', '');
+            video.muted = true;
+            // Miroir CSS pour la caméra avant (naturel sur un selfie)
+            video.style.webkitTransform = facing === 'user' ? 'scaleX(-1)' : 'none';
+            video.style.transform       = facing === 'user' ? 'scaleX(-1)' : 'none';
+            tryPlay();
+        }).catch(function(e) {
+            console.warn('getUserMedia opt ' + i + ' (' + e.name + ') facing=' + facing);
+            if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError' ||
+                e.name === 'NotFoundError'   || e.name === 'SecurityError') {
+                var info = camErrMsg(e.name);
+                showCamOverlay(info.title, info.msg, e.name !== 'NotFoundError');
+                cameraError = true;
+            } else {
+                tryNext(i + 1, e.name);
+            }
+        });
+    }
+    tryNext(0, null);
+}
+
+function flipCamera() {
+    currentFacing = (currentFacing === 'environment') ? 'user' : 'environment';
+    var btn = document.getElementById('btn-flip');
+    // Animation rotation du bouton
+    btn.style.webkitTransition = 'transform 0.35s ease';
+    btn.style.transition       = 'transform 0.35s ease';
+    btn.style.webkitTransform  = 'rotate(180deg)';
+    btn.style.transform        = 'rotate(180deg)';
+    setTimeout(function() {
+        btn.style.webkitTransform = 'none';
+        btn.style.transform       = 'none';
+    }, 350);
+    setStatus('CHANGEMENT CAMÉRA...', '#aaa');
+    requestCameraWith(currentFacing);
+}
+
+function tryPlay() {
+    if (!video.srcObject) return;
+    var p = video.play();
+    if (p && typeof p.then === 'function') {
+        p.catch(function(e) {
+            console.warn('video.play() rejeté (' + e.name + ')');
+            if (e.name === 'NotAllowedError') {
+                showCamOverlay('ACTIVATION REQUISE', 'Appuyez sur le bouton ci-dessous pour activer la caméra.', true);
+            }
+        });
+    }
+}
+
+function waitForCamera(timeoutMs) {
+    return new Promise(function(resolve, reject) {
+        if (cameraError) {
+            reject(new Error('Caméra non disponible. Voir le message à l\'écran.')); return;
+        }
+        tryPlay(); // relance dans contexte geste user (débloque iOS autoplay)
+        if (cameraReady && video.videoWidth > 0) { resolve(); return; }
+
+        var elapsed = 0, interval = 100;
+
+        function onFrame() {
+            if (video.videoWidth > 0) { cleanup(); resolve(); }
+        }
+        video.addEventListener('timeupdate', onFrame);
+        video.addEventListener('playing',    onFrame);
+
+        var timer = setInterval(function() {
+            elapsed += interval;
+            if (video.videoWidth > 0 && video.readyState >= 2) {
+                cleanup(); resolve();
+            } else if (elapsed >= timeoutMs) {
+                cleanup();
+                showCamOverlay('CAMÉRA NON PRÊTE',
+                    'La caméra n\'a pas pu démarrer dans le délai imparti. Vérifiez les permissions et réessayez.',
+                    true
+                );
+                reject(new Error('Caméra non prête. Voir le message à l\'écran.'));
+            }
+        }, interval);
+
+        function cleanup() {
+            clearInterval(timer);
+            video.removeEventListener('timeupdate', onFrame);
+            video.removeEventListener('playing',    onFrame);
+        }
+    });
+}
+
+function captureFrame() {
+    var MAX = 640;
+    var w0 = video.videoWidth  || 1;
+    var h0 = video.videoHeight || 1;
+    var r  = Math.min(MAX / w0, MAX / h0, 1);
+    cv.width  = Math.round(w0 * r);
+    cv.height = Math.round(h0 * r);
+    // Caméra avant : on annule le miroir CSS pour envoyer l'image non-mirrorée à l'IA
+    if (currentFacing === 'user') {
+        cx.save();
+        cx.translate(cv.width, 0);
+        cx.scale(-1, 1);
+        cx.drawImage(video, 0, 0, cv.width, cv.height);
+        cx.restore();
+    } else {
+        cx.drawImage(video, 0, 0, cv.width, cv.height);
+    }
+    return cv.toDataURL('image/jpeg', 0.78).split(',')[1];
+}
+
+/* ═══ LOADER JS — FIX: animation content non supportée en CSS ═══ */
+function startLd(el, base) {
+    var d = 0;
+    el.textContent = base + '.';
+    _ldTimer = setInterval(function() { d = (d + 1) % 4; el.textContent = base + new Array(d + 2).join('.'); }, 400);
+}
+function stopLd(el, txt) {
+    if (_ldTimer) { clearInterval(_ldTimer); _ldTimer = null; }
+    if (el) el.textContent = txt;
+}
+
+/* ═══ API — FIX: safeJsonParse + centralisé ═══ */
+function safeJsonParse(raw) {
+    try { return JSON.parse((raw || '{}').replace(/```json|```/g, '').trim()); }
+    catch(e) { throw new Error('Réponse IA non parsable. Réessayez.'); }
+}
+function mistralPost(key, body) {
+    return fetch('https://api.mistral.ai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+        body: JSON.stringify(body)
+    }).then(function(res) {
+        return res.json().then(function(d) {
+            if (!res.ok) throw new Error(d.message || 'HTTP ' + res.status);
+            return (d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content) || '{}';
+        });
+    });
+}
+
+var SYS_PIX = 'Tu es un capteur dermatologique. Analyse l\'image et retourne UNIQUEMENT un JSON valide (sans backticks) : {"score":<1-100>,"skin_type":<"normale"|"grasse"|"sèche"|"mixte"|"sensible">,"bacteria":<0.0-1.0>,"fungi":<0.0-1.0>,"sebum":<0.0-1.0>,"hydration":<0.0-1.0>,"pathologies":[<string>],"zones_concernees":[<string>],"teint":<"uniforme"|"irrégulier"|"terne"|"lumineux">,"texture":<"lisse"|"rugueuse"|"grumeleuse"|"mixte">,"status":<string MAJUSCULES>,"observation":<2-3 phrases fr>}';
+var SYS_DERM = 'Tu es Dr. PureScan, dermatologue expert. Réponds UNIQUEMENT avec un JSON valide (sans backticks) : {"profil_peau":<str>,"diagnostic_principal":<str>,"pathologies_identifiees":[{"nom":<str>,"severite":<"légère"|"modérée"|"sévère">,"description":<str>}],"nettoyage":[{"etape":<int>,"titre":<str>,"action":<str>,"produit_type":<str>,"duree":<str>,"frequence":<str>}],"produits":{"recommandes":[<str>],"eviter":[<str>],"ingredients_actifs":[<str>]},"routine_matin":[<str>],"routine_soir":[<str>],"traitements":[{"nom":<str>,"type":<str>,"description":<str>,"duree":<str>,"priorite":<"haute"|"moyenne"|"faible">}],"conseils_lifestyle":[<str>],"alerte_medicale":<str|null>,"pronostic":<str>}';
+var SYS_CLEAN = 'Tu es experte en clean beauty. Zéro paraben, SLS, silicone, parfum synthétique, PEG. Bio certifié. Réponds UNIQUEMENT avec un JSON valide (sans backticks) : {"clean_score":<1-100>,"clean_label":<"ULTRA-CLEAN"|"TRÈS CLEAN"|"CLEAN"|"ACCEPTABLE">,"philosophie":<str>,"routine_matin":[{"etape":<int>,"action":<str>,"produit_recommande":<str>,"ingredients_cles":[<str>],"pourquoi_sain":<str>,"duree":<str>,"temperature_eau":<"froide"|"tiède"|"ambiante">}],"routine_soir":[/*même*/],"routine_hebdo":[{"frequence":<str>,"action":<str>,"produit_recommande":<str>,"ingredients_cles":[<str>]}],"ingredients_stars":[{"nom":<str>,"origine":<str>,"benefices":<str>,"certification":<str>,"statut":<"incontournable"|"recommandé"|"optionnel">}],"ingredients_bannir":[{"nom":<str>,"risque":<str>,"pourquoi":<str>,"alternative_saine":<str>}],"produits_diy":[{"nom":<str>,"description":<str>}],"labels_a_chercher":[<str>],"conseil_eau":<str>,"gestes_a_eviter":[<str>]}';
+
+function callPixtral(b64, key) {
+    return mistralPost(key, { model: 'pixtral-12b-2409', max_tokens: 700,
+        messages: [{ role: 'system', content: SYS_PIX },
+            { role: 'user', content: [{ type: 'image_url', image_url: { url: 'data:image/jpeg;base64,' + b64 } }, { type: 'text', text: 'Analyse et retourne le JSON.' }] }]
+    }).then(safeJsonParse);
+}
+function callDerm(diag, key) {
+    return mistralPost(key, { model: 'mistral-large-latest', max_tokens: 2200,
+        messages: [{ role: 'system', content: SYS_DERM }, { role: 'user', content: 'Diagnostic:\n' + JSON.stringify(diag) }]
+    }).then(safeJsonParse);
+}
+function callClean(diag, derm, key) {
+    var p = { type_peau: diag.skin_type, score: diag.score, pathologies: diag.pathologies, sebum: diag.sebum, hydration: diag.hydration, texture: diag.texture, zones: diag.zones_concernees, diagnostic: derm.diagnostic_principal };
+    return mistralPost(key, { model: 'mistral-large-latest', max_tokens: 3000,
+        messages: [{ role: 'system', content: SYS_CLEAN }, { role: 'user', content: 'Profil:\n' + JSON.stringify(p) + '\n\nGénère la routine clean beauty.' }]
+    }).then(safeJsonParse);
+}
+
+/* ═══ ORCHESTRATION ═══ */
+function startScan() {
+    if (busy) return;
+    var key = document.getElementById('api-key').value.trim();
+    if (!key) { setStatus('CLÉ API REQUISE', '#FF9100'); return; }
+
+    busy = true;
+    var btn = document.getElementById('btn-scan');
+    btn.disabled = true;
+
+    var sl = document.getElementById('scan-line');
+    sl.classList.remove('go'); void sl.offsetWidth; sl.classList.add('go');
+
+    setStatus('INITIALISATION CAMÉRA...', '#fff');
+    btn.textContent = 'ATTENTE CAMÉRA...';
+
+    // Étape 1 : attendre que la caméra soit prête (max 8 secondes)
+    waitForCamera(8000).then(function() {
+        setStatus("CAPTURE DE L'IMAGE...", '#fff');
+        startLd(btn, 'AGENT 1 · PIXTRAL');
+        var b64 = captureFrame();
+
+        setStatus('ANALYSE VISUELLE...', '#fff');
+        return callPixtral(b64, key);
+
+    }).then(function(skin) {
+        skinData = skin; updateHUD(skin);
+        startLd(btn, 'AGENT 2 · DERMATOLOGUE');
+        setStatus('AGENT 2 · DERMATOLOGUE IA...', '#00B0FF');
+        return callDerm(skin, key);
+
+    }).then(function(derm) {
+        dermData = derm;
+        startLd(btn, 'AGENT 3 · CLEAN BEAUTY');
+        setStatus('AGENT 3 · CLEAN BEAUTY...', '#69F0AE');
+        return callClean(skinData, derm, key).catch(function(e) {
+            console.warn('Agent 3 non fatal:', e.message); return null;
+        });
+
+    }).then(function(clean) {
+        routineData = clean;
+        renderRapport(); renderNettoyage(); renderProduits(); renderTraitement();
+        if (routineData) renderRoutine();
+        initChat(key);
+        setStatus((skinData && skinData.status) || 'ANALYSE COMPLÈTE', null);
+        document.querySelector('[data-tab="rapport"]').click();
+
+    }).catch(function(e) {
+        setStatus('ERREUR : ' + e.message.substring(0, 55), '#FF1744');
+
+    }).then(function() {
+        stopLd(btn, '↻ NOUVEAU SCAN');
+        btn.disabled = false; busy = false;
+    });
+}
+
+/* ═══ HUD ═══ */
+function updateHUD(d) {
+    var s = clamp(d.score != null ? d.score : 50, 1, 100);
+    var c = s >= 80 ? '#00E676' : s >= 55 ? '#FFEB3B' : '#FF5252';
+    document.documentElement.style.setProperty('--clr', c);
+    document.documentElement.style.setProperty('--glow', hexA(c, 0.35));
+    var C = 2 * Math.PI * 87;
+    var gf = document.getElementById('g-fill');
+    gf.style.strokeDashoffset = C * (1 - s / 100);
+    gf.style.stroke = c; gf.style.filter = 'drop-shadow(0 0 8px ' + c + ')';
+    var gn = document.getElementById('g-num');
+    gn.textContent = s; gn.style.color = c;
+    gn.style.textShadow = '0 0 20px ' + hexA(c, 0.6);
+    bar('b-bacteria','p-bacteria', d.bacteria != null ? d.bacteria : 0, c);
+    bar('b-fungi',   'p-fungi',    d.fungi    != null ? d.fungi    : 0, c);
+    bar('b-sebum',   'p-sebum',    d.sebum    != null ? d.sebum    : 0, c);
+    bar('b-hydration','p-hydration',d.hydration!= null ? d.hydration: 0, c);
+}
+function bar(bid, pid, v, c) {
+    var p = Math.round(clamp(v,0,1)*100);
+    var b = document.getElementById(bid); b.style.width = p+'%'; b.style.backgroundColor = c;
+    var l = document.getElementById(pid); l.textContent = p+'%'; l.style.color = c;
+}
+
+/* ═══ RENDERS ═══ */
+function renderRapport() {
+    var d = skinData, r = dermData; if (!d || !r) return;
+    var h = '<div class="s-title">Profil Cutané</div>';
+    h += '<span class="skin-badge">' + esc((d.skin_type||'').toUpperCase()) + '</span>';
+    h += '<div class="card"><div class="ctitle">Diagnostic principal</div><p>' + esc(r.diagnostic_principal||'') + '</p></div>';
+    h += '<div class="card"><div class="ctitle">Profil détaillé</div><p>' + esc(r.profil_peau||'') + '</p></div>';
+    h += '<div class="s-title">Observations Visuelles</div><div class="card"><p>' + esc(d.observation||'') + '</p></div>';
+    if (d.pathologies && d.pathologies.length) {
+        h += '<div class="s-title">Pathologies Détectées</div><div class="tags">';
+        d.pathologies.forEach(function(p){ h += '<span class="tag w">'+esc(p)+'</span>'; }); h += '</div>';
+    }
+    if (r.pathologies_identifiees && r.pathologies_identifiees.length) {
+        r.pathologies_identifiees.forEach(function(p) {
+            var col = p.severite==='sévère'?'#FF5252':p.severite==='modérée'?'#FFEB3B':'#00E676';
+            h += '<div class="card"><div class="ctitle">'+esc(p.nom)+' — <span style="color:'+col+'">'+esc(p.severite)+'</span></div><p>'+esc(p.description||'')+'</p></div>';
+        });
+    }
+    h += '<div class="s-title">État Cutané</div><div class="tags">';
+    if(d.teint)   h += '<span class="tag">Teint : '+esc(d.teint)+'</span>';
+    if(d.texture) h += '<span class="tag">Texture : '+esc(d.texture)+'</span>';
+    (d.zones_concernees||[]).forEach(function(z){ h += '<span class="tag w">'+esc(z)+'</span>'; });
+    h += '</div>';
+    if(r.pronostic) h += '<div class="s-title">Pronostic</div><div class="card"><p>'+esc(r.pronostic)+'</p></div>';
+    if(r.alerte_medicale) h += '<div class="card" style="border-color:rgba(255,82,82,.45);background:rgba(255,82,82,.06)"><div class="ctitle" style="color:#FF5252">⚠ ALERTE MÉDICALE</div><p style="color:#FFAB91">'+esc(r.alerte_medicale)+'</p></div>';
+    document.getElementById('rapport-content').innerHTML = h;
+}
+
+function renderNettoyage() {
+    var r = dermData; if(!r || !r.nettoyage) return;
+    var h = '<div class="s-title">Protocole de Nettoyage</div>';
+    r.nettoyage.forEach(function(s) {
+        h += '<div class="step"><div class="snum">'+s.etape+'</div><div class="sbody"><div class="stitle">'+esc(s.titre||'')+'</div><div class="sdesc">'+esc(s.action||'')+'</div><div class="smeta">'+(s.produit_type?'🧴 '+esc(s.produit_type):'')+(s.duree?' · ⏱ '+esc(s.duree):'')+(s.frequence?' · 🔁 '+esc(s.frequence):'')+'</div></div></div>';
+    });
+    if(r.routine_matin||r.routine_soir){
+        h += '<div class="s-title">Routine Quotidienne</div><div class="rgrid"><div><div class="rhead am">☀ Matin</div>';
+        (r.routine_matin||[]).forEach(function(s){ h += '<div class="rstep">'+esc(s)+'</div>'; });
+        h += '</div><div><div class="rhead pm">🌙 Soir</div>';
+        (r.routine_soir||[]).forEach(function(s){ h += '<div class="rstep">'+esc(s)+'</div>'; });
+        h += '</div></div>';
+    }
+    if(r.conseils_lifestyle&&r.conseils_lifestyle.length){
+        h += '<div class="s-title">Conseils Lifestyle</div>';
+        r.conseils_lifestyle.forEach(function(c){ h += '<div class="card"><p>💡 '+esc(c)+'</p></div>'; });
+    }
+    document.getElementById('nettoyage-content').innerHTML = h;
+}
+
+function renderProduits() {
+    var p = dermData && dermData.produits; if(!p) return;
+    var h = '';
+    if(p.ingredients_actifs&&p.ingredients_actifs.length){ h+='<div class="s-title">Ingrédients Actifs</div><div class="prod-list">'; p.ingredients_actifs.forEach(function(i){h+='<span class="pi a">'+esc(i)+'</span>';}); h+='</div>'; }
+    if(p.recommandes&&p.recommandes.length){ h+='<div class="s-title">Produits Recommandés</div><div class="prod-list">'; p.recommandes.forEach(function(i){h+='<span class="pi y">✓ '+esc(i)+'</span>';}); h+='</div>'; }
+    if(p.eviter&&p.eviter.length){ h+='<div class="s-title">À Éviter</div><div class="prod-list">'; p.eviter.forEach(function(i){h+='<span class="pi n">✕ '+esc(i)+'</span>';}); h+='</div>'; }
+    document.getElementById('produits-content').innerHTML = h;
+}
+
+function renderTraitement() {
+    var r = dermData; if(!r||!r.traitements) return;
+    var h = '<div class="s-title">Plan de Traitement</div>';
+    var ORDER = {haute:0,moyenne:1,faible:2};
+    r.traitements.slice().sort(function(a,b){ return (ORDER[a.priorite||'faible']||1)-(ORDER[b.priorite||'faible']||1); }).forEach(function(t) {
+        var c = t.priorite==='haute'?'#FF5252':t.priorite==='moyenne'?'#FFEB3B':'#00E676';
+        h += '<div class="card" style="border-left:3px solid '+c+'"><div class="ctitle" style="display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between"><span>'+esc(t.nom||'')+'</span><span style="color:'+c+'">'+esc((t.priorite||'').toUpperCase())+'</span></div><div class="tags" style="margin-bottom:5px"><span class="tag">'+esc(t.type||'')+'</span>'+(t.duree?'<span class="tag">⏱ '+esc(t.duree)+'</span>':'')+'</div><p>'+esc(t.description||'')+'</p></div>';
+    });
+    document.getElementById('traitement-content').innerHTML = h;
+}
+
+function renderRoutine() {
+    var r = routineData; if(!r) return;
+    var h = '';
+    // Score — SVG arc (universel, pas de conic-gradient)
+    var cs = clamp(r.clean_score!=null?r.clean_score:80,1,100);
+    var cc = cs>=85?'#00E676':cs>=65?'#FFEB3B':'#FF5252';
+    var ang = cs/100*360, rad = ang*Math.PI/180, laf = ang>180?1:0;
+    var ex = +(26+22*Math.sin(rad)).toFixed(2), ey = +(26-22*Math.cos(rad)).toFixed(2);
+    var arcD = cs>=100 ? '' : 'M26,4 A22,22,0,'+laf+',1,'+ex+','+ey;
+    var arcSVG = '<svg width="52" height="52" viewBox="0 0 52 52" style="-webkit-flex-shrink:0;flex-shrink:0">'
+        +'<circle cx="26" cy="26" r="22" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="5"/>'
+        +(cs>=100?'<circle cx="26" cy="26" r="22" fill="none" stroke="'+cc+'" stroke-width="5"/>':'<path d="'+arcD+'" fill="none" stroke="'+cc+'" stroke-width="5" stroke-linecap="round"/>')
+        +'<circle cx="26" cy="26" r="18" fill="rgba(8,14,26,0.97)"/>'
+        +'<text x="26" y="30" text-anchor="middle" font-family="Orbitron,monospace" font-size="9" font-weight="900" fill="'+cc+'">'+cs+'</text>'
+        +'</svg>';
+    h += '<div class="clean-score-row">'+arcSVG
+        +'<div class="clean-score-info">'
+        +'<div class="clean-score-title">CLEAN BEAUTY SCORE</div>'
+        +'<div class="clean-score-label" style="color:'+cc+'">'+esc(r.clean_label||'CLEAN')+'</div>'
+        +'<div style="font-size:0.72rem;color:rgba(255,255,255,0.42);margin-top:2px;font-weight:300">'+esc(r.philosophie||'')+'</div>'
+        +'</div></div>';
+
+    function stepHtml(s) {
+        var tc = s.temperature_eau==='froide'?'#00B0FF':s.temperature_eau==='tiède'?'#FFEB3B':'#aaa';
+        var ing = (s.ingredients_cles&&s.ingredients_cles.length)?'<div class="prod-sain-ing" style="margin-bottom:5px">'+s.ingredients_cles.map(function(i){return '<span class="pi-sain">'+esc(i)+'</span>';}).join('')+'</div>':'';
+        return '<div class="step"><div class="snum">'+s.etape+'</div><div class="sbody">'
+            +'<div class="stitle">'+esc(s.action||'')+'</div>'
+            +'<div class="sdesc" style="margin-bottom:5px">'+esc(s.produit_recommande||'')+'</div>'+ing
+            +'<div class="smeta">'+(s.pourquoi_sain?'💚 '+esc(s.pourquoi_sain):'')+( s.duree?' · ⏱ '+esc(s.duree):'')+( s.temperature_eau?' · <span style="color:'+tc+'">💧 '+esc(s.temperature_eau)+'</span>':'')+'</div>'
+            +'</div></div>';
+    }
+    if(r.routine_matin&&r.routine_matin.length){ h+='<div class="s-title"><span class="phase-icon">☀</span> Routine Matin</div>'; r.routine_matin.forEach(function(s){h+=stepHtml(s);}); }
+    if(r.routine_soir&&r.routine_soir.length)  { h+='<div class="s-title"><span class="phase-icon">🌙</span> Routine Soir</div>';  r.routine_soir.forEach(function(s){h+=stepHtml(s);}); }
+    if(r.routine_hebdo&&r.routine_hebdo.length){
+        h+='<div class="s-title">📅 Soins Hebdomadaires</div>';
+        r.routine_hebdo.forEach(function(s){
+            var ing=(s.ingredients_cles&&s.ingredients_cles.length)?'<div class="prod-sain-ing">'+s.ingredients_cles.map(function(i){return '<span class="pi-sain">'+esc(i)+'</span>';}).join('')+'</div>':'';
+            h+='<div class="prod-sain"><div class="prod-sain-header"><div class="prod-sain-name">'+esc(s.action||'')+'</div><div class="clean-star">'+esc(s.frequence||'')+'</div></div><div class="prod-sain-desc">'+esc(s.produit_recommande||'')+'</div>'+ing+'</div>';
+        });
+    }
+    if(r.ingredients_stars&&r.ingredients_stars.length){
+        h+='<div class="s-title">⭐ Ingrédients Stars</div>';
+        r.ingredients_stars.forEach(function(i){
+            var sc=i.statut==='incontournable'?'safe':i.statut==='recommandé'?'mod':'opt';
+            h+='<div class="ing-card"><div class="ing-header"><div class="ing-name">'+esc(i.nom||'')+'</div><div class="ing-badge '+sc+'">'+esc((i.statut||'').toUpperCase())+'</div></div><div class="ing-desc">'+esc(i.benefices||'')+'</div>'+(i.origine?'<div class="ing-alt">🌍 '+esc(i.origine)+'</div>':'')+(i.certification?'<div class="ing-alt" style="color:#00E676">✔ '+esc(i.certification)+'</div>':'')+'</div>';
+        });
+    }
+    if(r.ingredients_bannir&&r.ingredients_bannir.length){
+        h+='<div class="s-title">🚫 Ingrédients à Bannir</div><div class="ban-table">';
+        r.ingredients_bannir.forEach(function(i){
+            h+='<div class="ban-row"><div class="ban-top"><span class="ban-name">'+esc(i.nom||'')+'</span><span class="ban-risk">'+esc(i.risque||'')+'</span></div><div class="ban-why">'+esc(i.pourquoi||'')+(i.alternative_saine?' → <span style="color:#00E676">Alt : '+esc(i.alternative_saine)+'</span>':'')+'</div></div>';
+        });
+        h+='</div>';
+    }
+    if(r.produits_diy&&r.produits_diy.length){
+        h+='<div class="s-title">🧪 Recettes DIY</div>';
+        r.produits_diy.forEach(function(d){h+='<div class="diy-card"><div class="diy-title">'+esc(d.nom||'')+'</div><div class="diy-desc">'+esc(d.description||'')+'</div></div>';});
+    }
+    if(r.labels_a_chercher&&r.labels_a_chercher.length){
+        h+='<div class="s-title">🏷 Labels à Rechercher</div><div class="tags">';
+        r.labels_a_chercher.forEach(function(l){h+='<span class="tag g">'+esc(l)+'</span>';});
+        h+='</div>';
+    }
+    if(r.conseil_eau) h+='<div class="card" style="border-color:rgba(0,176,255,.2);background:rgba(0,176,255,.04)"><div class="ctitle" style="color:#00B0FF">💧 QUALITÉ DE L\'EAU</div><p>'+esc(r.conseil_eau)+'</p></div>';
+    if(r.gestes_a_eviter&&r.gestes_a_eviter.length){
+        h+='<div class="s-title">⚠ Gestes à Éviter</div>';
+        r.gestes_a_eviter.forEach(function(g){h+='<div class="card"><p>✕ '+esc(g)+'</p></div>';});
+    }
+    document.getElementById('routine-content').innerHTML = h;
+}
+
+/* ═══ CHAT ═══ */
+function initChat(key) {
+    chatApiKey = key;
+    chatHist = [{ role:'system', content:'Tu es Dr. PureScan, dermatologue expert clean beauty. Données patient :\nPixtral:'+JSON.stringify(skinData)+'\nDermatologue:'+JSON.stringify(dermData)+'\nClean Beauty:'+JSON.stringify(routineData)+'\nRéponds en français. Max 3-4 phrases.' }];
+    var intro = 'Analyse complète. Type : <strong>'+esc(skinData.skin_type||'?')+'</strong> — Score santé <strong>'+(skinData.score||'--')+'/100</strong>'
+        +(routineData?' — Clean Beauty <strong>'+(routineData.clean_score||'--')+'/100</strong> ('+esc(routineData.clean_label||'')+')':'')
+        +'. Posez vos questions sur les soins, produits naturels ou votre routine.';
+    addBot(intro, true);
+}
+function sendChat() {
+    if(chatBusy) return;
+    var inp = document.getElementById('chat-input');
+    var txt = inp.value.trim(); if(!txt) return;
+    var key = chatApiKey || document.getElementById('api-key').value.trim();
+    if(!key){ addBot('Veuillez saisir votre clé API Mistral.', false); return; }
+    if(!skinData){ addBot('Lancez d\'abord une analyse.', false); return; }
+    inp.value = ''; addUser(txt);
+    chatBusy = true; document.getElementById('chat-send').disabled = true;
+    var tid = addTyping();
+    chatHist.push({ role:'user', content:txt });
+    // Troncature : conserver le system prompt + les 20 derniers messages
+    if (chatHist.length > 22) {
+        chatHist = [chatHist[0]].concat(chatHist.slice(-20));
+    }
+    mistralPost(key, { model:'mistral-large-latest', max_tokens:450, messages:chatHist })
+    .then(function(raw){ rmTyping(tid); chatHist.push({role:'assistant',content:raw}); addBot(raw, false); })
+    .catch(function(e){ rmTyping(tid); addBot('Erreur : '+e.message, false); })
+    .then(function(){ chatBusy=false; document.getElementById('chat-send').disabled=false; });
+}
+function addUser(t){ var e=mk('div','msg u'); e.textContent=t; app(e); }
+function addBot(t,isHTML){
+    var e=mk('div','msg b');
+    var hdr='<div class="mh">DR. PURESCAN · IA</div>';
+    e.innerHTML = isHTML ? hdr+t : hdr+esc(t).replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');
+    app(e);
+}
+var _tc=0;
+function addTyping(){ var id='ty'+(++_tc); var e=mk('div','msg b'); e.id=id; e.innerHTML='<span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>'; app(e); return id; }
+function rmTyping(id){ var e=document.getElementById(id); if(e) e.parentNode.removeChild(e); }
+function mk(t,c){ var e=document.createElement(t); e.className=c; return e; }
+function app(el){ document.getElementById('chat-msgs').appendChild(el); setTimeout(function(){ var s=document.getElementById('chat-scroll'); s.scrollTop=s.scrollHeight; },60); }
+
+/* ═══ UTILS ═══ */
+function setStatus(t,c){ var e=document.getElementById('status-text'); e.textContent=t; e.style.color=c||'var(--clr)'; }
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+function hexA(h,a){ var r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16); return 'rgba('+r+','+g+','+b+','+a+')'; }
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+/* ═══ INIT — tout dans DOMContentLoaded ═══ */
+document.addEventListener('DOMContentLoaded', function() {
+    initTabs();
+
+    // ── Écran d'autorisation caméra ──
+    document.getElementById('perm-btn').addEventListener('click', function() {
+        var btn = document.getElementById('perm-btn');
+        var st  = document.getElementById('perm-status');
+        btn.disabled    = true;
+        btn.textContent = 'ACTIVATION...';
+        st.textContent  = 'DEMANDE EN COURS...';
+        st.style.color  = 'rgba(255,255,255,0.4)';
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            hidePerm();
+            showCamOverlay('CAMERA NON DISPONIBLE', 'Utilisez Chrome ou Safari en HTTPS.', false);
+            cameraError = true; return;
+        }
+        navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+            .then(function(stream) {
+                stream.getTracks().forEach(function(t){ t.stop(); });
+                hidePerm();
+                setupCamera();
+            })
+            .catch(function(e) {
+                btn.disabled    = false;
+                btn.textContent = 'AUTORISER LA CAMERA';
+                if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
+                    st.style.color = '#FF5252';
+                    st.textContent = 'Acces refuse - Verifiez les reglages navigateur';
+                } else {
+                    st.style.color = '#FF9100';
+                    st.textContent = camErrMsg(e.name).title;
+                }
+            });
+    });
+
+    document.getElementById('perm-skip').addEventListener('click', function() {
+        hidePerm();
+        setStatus('MODE SANS CAMERA', 'rgba(255,255,255,0.4)');
+        cameraError = true;
+    });
+
+    // Vérifie la permission et affiche ou non l'écran
+    checkPermissionAndSetup();
+
+    // ── Scan ──
+    document.getElementById('btn-scan').addEventListener('click', startScan);
+
+    // ── Flip caméra ──
+    document.getElementById('btn-flip').addEventListener('click', flipCamera);
+
+    // ── Retry caméra ──
+    document.getElementById('cam-retry-btn').addEventListener('click', function() {
+        cameraError = false;
+        cameraReady = false;
+        requestCamera();
+    });
+
+    // ── Chat ──
+    document.getElementById('chat-send').addEventListener('click', sendChat);
+    document.getElementById('chat-input').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
+    });
+});
+</script>
+</body>
+</html>
