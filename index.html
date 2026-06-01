@@ -410,6 +410,11 @@
   .niko-loading-ring{width:48px;height:48px;border:3px solid rgba(0,255,157,.2);border-top-color:#00ff9d;border-radius:50%;animation:niko-spin .8s linear infinite}
   @keyframes niko-spin{to{transform:rotate(360deg)}}
   .niko-loading.hidden{opacity:0;pointer-events:none;transition:opacity .3s}
+
+/* ── Skeleton Loader ─────────────────────────── */
+.skeleton{background:linear-gradient(90deg,rgba(0,255,157,.07) 25%,rgba(0,255,157,.15) 50%,rgba(0,255,157,.07) 75%);background-size:200% 100%;animation:skel-wave 1.4s infinite;border-radius:6px;min-height:1em}
+@keyframes skel-wave{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
 </style>
   <meta name="description" content="PureScan AI — Scanner de produits et analyse IA des ingrédients. Score santé et toxicité.">
   <meta name="author" content="Nicolas Julienne — Studio Niko Design">
@@ -421,8 +426,13 @@
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="PureScan AI | Studio Niko Design">
   <meta name="twitter:description" content="Analyse produits IA — scan ingrédients, score santé/toxicité, recommandations alternatives">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 </head>
-<body>
+<body role="application" aria-label="PureScan AI — Analyse produits IA">
+<main id="app" tabindex="-1">
+<h1 style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap">PureScan AI</h1>
+
 
 <!-- ═══ ÉCRAN AUTORISATION CAMÉRA ═══ -->
 <div id="perm-screen" style="
@@ -621,22 +631,22 @@
 
 <script>
 /* ═══ STATE ═══ */
-var skinData = null, dermData = null, routineData = null;
-var chatHist = [], chatApiKey = '';
-var busy = false, chatBusy = false;
-var _ldTimer = null;
+const skinData = null, dermData = null, routineData = null;
+const chatHist = [], chatApiKey = '';
+const busy = false, chatBusy = false;
+const _ldTimer = null;
 
 /* ═══ TABS ═══ */
 function initTabs() {
-    var btns  = document.querySelectorAll('.tab-btn');
-    var panes = document.querySelectorAll('.tab-pane');
-    for (var i = 0; i < btns.length; i++) {
+    const btns  = document.querySelectorAll('.tab-btn');
+    const panes = document.querySelectorAll('.tab-pane');
+    for (const i = 0; i < btns.length; i++) {
         (function(btn) {
             btn.addEventListener('click', function() {
-                for (var j = 0; j < btns.length;  j++) btns[j].classList.remove('active');
-                for (var j = 0; j < panes.length; j++) panes[j].classList.remove('active');
+                for (const j = 0; j < btns.length;  j++) btns[j].classList.remove('active');
+                for (const j = 0; j < panes.length; j++) panes[j].classList.remove('active');
                 btn.classList.add('active');
-                var p = document.getElementById('tab-' + btn.getAttribute('data-tab'));
+                const p = document.getElementById('tab-' + btn.getAttribute('data-tab'));
                 if (p) p.classList.add('active');
             });
         })(btns[i]);
@@ -644,12 +654,12 @@ function initTabs() {
 }
 
 /* ═══ CAMERA ═══ */
-var video       = document.getElementById('cam');
-var cv          = document.getElementById('capture-canvas');
-var cx          = cv.getContext('2d');
-var camStream   = null;
-var cameraReady = false;
-var cameraError = false;
+const video       = document.getElementById('cam');
+const cv          = document.getElementById('capture-canvas');
+const cx          = cv.getContext('2d');
+const camStream   = null;
+const cameraReady = false;
+const cameraError = false;
 
 function markReady() {
     if (!cameraReady && video.videoWidth > 0) {
@@ -680,7 +690,7 @@ function camErrMsg(name) {
 }
 
 function showCamOverlay(title, msg, showRetry) {
-    var ov = document.getElementById('cam-overlay');
+    const ov = document.getElementById('cam-overlay');
     document.getElementById('cam-overlay-title').textContent = title;
     document.getElementById('cam-overlay-msg').textContent   = msg;
     document.getElementById('cam-retry-btn').style.display = showRetry ? 'block' : 'none';
@@ -757,7 +767,7 @@ function setupCamera() {
     video.addEventListener('canplaythrough', markReady);
     video.addEventListener('canplay',        markReady);
 
-    var pollId = setInterval(function() {
+    const pollId = setInterval(function() {
         if (video.videoWidth > 0 && video.readyState >= 2) { markReady(); clearInterval(pollId); }
     }, 200);
 
@@ -765,7 +775,7 @@ function setupCamera() {
 }
 
 // 'environment' = caméra arrière, 'user' = caméra avant
-var currentFacing = 'environment';
+const currentFacing = 'environment';
 
 function requestCamera() {
     requestCameraWith(currentFacing);
@@ -777,7 +787,7 @@ function requestCameraWith(facing) {
     hideCamOverlay();
 
     // Construire les options de fallback selon la caméra demandée
-    var opts;
+    const opts;
     if (facing === 'user') {
         opts = [
             { video: { facingMode: { exact: 'user' } }, audio: false },
@@ -794,7 +804,7 @@ function requestCameraWith(facing) {
 
     function tryNext(i, lastErr) {
         if (i >= opts.length) {
-            var info = camErrMsg(lastErr || 'Unknown');
+            const info = camErrMsg(lastErr || 'Unknown');
             showCamOverlay(info.title, info.msg, true);
             cameraError = true;
             return;
@@ -817,7 +827,7 @@ function requestCameraWith(facing) {
             console.warn('getUserMedia opt ' + i + ' (' + e.name + ') facing=' + facing);
             if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError' ||
                 e.name === 'NotFoundError'   || e.name === 'SecurityError') {
-                var info = camErrMsg(e.name);
+                const info = camErrMsg(e.name);
                 showCamOverlay(info.title, info.msg, e.name !== 'NotFoundError');
                 cameraError = true;
             } else {
@@ -830,7 +840,7 @@ function requestCameraWith(facing) {
 
 function flipCamera() {
     currentFacing = (currentFacing === 'environment') ? 'user' : 'environment';
-    var btn = document.getElementById('btn-flip');
+    const btn = document.getElementById('btn-flip');
     // Animation rotation du bouton
     btn.style.webkitTransition = 'transform 0.35s ease';
     btn.style.transition       = 'transform 0.35s ease';
@@ -846,7 +856,7 @@ function flipCamera() {
 
 function tryPlay() {
     if (!video.srcObject) return;
-    var p = video.play();
+    const p = video.play();
     if (p && typeof p.then === 'function') {
         p.catch(function(e) {
             console.warn('video.play() rejeté (' + e.name + ')');
@@ -865,7 +875,7 @@ function waitForCamera(timeoutMs) {
         tryPlay(); // relance dans contexte geste user (débloque iOS autoplay)
         if (cameraReady && video.videoWidth > 0) { resolve(); return; }
 
-        var elapsed = 0, interval = 100;
+        const elapsed = 0, interval = 100;
 
         function onFrame() {
             if (video.videoWidth > 0) { cleanup(); resolve(); }
@@ -873,7 +883,7 @@ function waitForCamera(timeoutMs) {
         video.addEventListener('timeupdate', onFrame);
         video.addEventListener('playing',    onFrame);
 
-        var timer = setInterval(function() {
+        const timer = setInterval(function() {
             elapsed += interval;
             if (video.videoWidth > 0 && video.readyState >= 2) {
                 cleanup(); resolve();
@@ -896,10 +906,10 @@ function waitForCamera(timeoutMs) {
 }
 
 function captureFrame() {
-    var MAX = 640;
-    var w0 = video.videoWidth  || 1;
-    var h0 = video.videoHeight || 1;
-    var r  = Math.min(MAX / w0, MAX / h0, 1);
+    const MAX = 640;
+    const w0 = video.videoWidth  || 1;
+    const h0 = video.videoHeight || 1;
+    const r  = Math.min(MAX / w0, MAX / h0, 1);
     cv.width  = Math.round(w0 * r);
     cv.height = Math.round(h0 * r);
     // Caméra avant : on annule le miroir CSS pour envoyer l'image non-mirrorée à l'IA
@@ -917,7 +927,7 @@ function captureFrame() {
 
 /* ═══ LOADER JS — FIX: animation content non supportée en CSS ═══ */
 function startLd(el, base) {
-    var d = 0;
+    const d = 0;
     el.textContent = base + '.';
     _ldTimer = setInterval(function() { d = (d + 1) % 4; el.textContent = base + new Array(d + 2).join('.'); }, 400);
 }
@@ -944,9 +954,9 @@ function mistralPost(key, body) {
     });
 }
 
-var SYS_PIX = 'Tu es un capteur dermatologique. Analyse l\'image et retourne UNIQUEMENT un JSON valide (sans backticks) : {"score":<1-100>,"skin_type":<"normale"|"grasse"|"sèche"|"mixte"|"sensible">,"bacteria":<0.0-1.0>,"fungi":<0.0-1.0>,"sebum":<0.0-1.0>,"hydration":<0.0-1.0>,"pathologies":[<string>],"zones_concernees":[<string>],"teint":<"uniforme"|"irrégulier"|"terne"|"lumineux">,"texture":<"lisse"|"rugueuse"|"grumeleuse"|"mixte">,"status":<string MAJUSCULES>,"observation":<2-3 phrases fr>}';
-var SYS_DERM = 'Tu es Dr. PureScan, dermatologue expert. Réponds UNIQUEMENT avec un JSON valide (sans backticks) : {"profil_peau":<str>,"diagnostic_principal":<str>,"pathologies_identifiees":[{"nom":<str>,"severite":<"légère"|"modérée"|"sévère">,"description":<str>}],"nettoyage":[{"etape":<int>,"titre":<str>,"action":<str>,"produit_type":<str>,"duree":<str>,"frequence":<str>}],"produits":{"recommandes":[<str>],"eviter":[<str>],"ingredients_actifs":[<str>]},"routine_matin":[<str>],"routine_soir":[<str>],"traitements":[{"nom":<str>,"type":<str>,"description":<str>,"duree":<str>,"priorite":<"haute"|"moyenne"|"faible">}],"conseils_lifestyle":[<str>],"alerte_medicale":<str|null>,"pronostic":<str>}';
-var SYS_CLEAN = 'Tu es experte en clean beauty. Zéro paraben, SLS, silicone, parfum synthétique, PEG. Bio certifié. Réponds UNIQUEMENT avec un JSON valide (sans backticks) : {"clean_score":<1-100>,"clean_label":<"ULTRA-CLEAN"|"TRÈS CLEAN"|"CLEAN"|"ACCEPTABLE">,"philosophie":<str>,"routine_matin":[{"etape":<int>,"action":<str>,"produit_recommande":<str>,"ingredients_cles":[<str>],"pourquoi_sain":<str>,"duree":<str>,"temperature_eau":<"froide"|"tiède"|"ambiante">}],"routine_soir":[/*même*/],"routine_hebdo":[{"frequence":<str>,"action":<str>,"produit_recommande":<str>,"ingredients_cles":[<str>]}],"ingredients_stars":[{"nom":<str>,"origine":<str>,"benefices":<str>,"certification":<str>,"statut":<"incontournable"|"recommandé"|"optionnel">}],"ingredients_bannir":[{"nom":<str>,"risque":<str>,"pourquoi":<str>,"alternative_saine":<str>}],"produits_diy":[{"nom":<str>,"description":<str>}],"labels_a_chercher":[<str>],"conseil_eau":<str>,"gestes_a_eviter":[<str>]}';
+const SYS_PIX = 'Tu es un capteur dermatologique. Analyse l\'image et retourne UNIQUEMENT un JSON valide (sans backticks) : {"score":<1-100>,"skin_type":<"normale"|"grasse"|"sèche"|"mixte"|"sensible">,"bacteria":<0.0-1.0>,"fungi":<0.0-1.0>,"sebum":<0.0-1.0>,"hydration":<0.0-1.0>,"pathologies":[<string>],"zones_concernees":[<string>],"teint":<"uniforme"|"irrégulier"|"terne"|"lumineux">,"texture":<"lisse"|"rugueuse"|"grumeleuse"|"mixte">,"status":<string MAJUSCULES>,"observation":<2-3 phrases fr>}';
+const SYS_DERM = 'Tu es Dr. PureScan, dermatologue expert. Réponds UNIQUEMENT avec un JSON valide (sans backticks) : {"profil_peau":<str>,"diagnostic_principal":<str>,"pathologies_identifiees":[{"nom":<str>,"severite":<"légère"|"modérée"|"sévère">,"description":<str>}],"nettoyage":[{"etape":<int>,"titre":<str>,"action":<str>,"produit_type":<str>,"duree":<str>,"frequence":<str>}],"produits":{"recommandes":[<str>],"eviter":[<str>],"ingredients_actifs":[<str>]},"routine_matin":[<str>],"routine_soir":[<str>],"traitements":[{"nom":<str>,"type":<str>,"description":<str>,"duree":<str>,"priorite":<"haute"|"moyenne"|"faible">}],"conseils_lifestyle":[<str>],"alerte_medicale":<str|null>,"pronostic":<str>}';
+const SYS_CLEAN = 'Tu es experte en clean beauty. Zéro paraben, SLS, silicone, parfum synthétique, PEG. Bio certifié. Réponds UNIQUEMENT avec un JSON valide (sans backticks) : {"clean_score":<1-100>,"clean_label":<"ULTRA-CLEAN"|"TRÈS CLEAN"|"CLEAN"|"ACCEPTABLE">,"philosophie":<str>,"routine_matin":[{"etape":<int>,"action":<str>,"produit_recommande":<str>,"ingredients_cles":[<str>],"pourquoi_sain":<str>,"duree":<str>,"temperature_eau":<"froide"|"tiède"|"ambiante">}],"routine_soir":[/*même*/],"routine_hebdo":[{"frequence":<str>,"action":<str>,"produit_recommande":<str>,"ingredients_cles":[<str>]}],"ingredients_stars":[{"nom":<str>,"origine":<str>,"benefices":<str>,"certification":<str>,"statut":<"incontournable"|"recommandé"|"optionnel">}],"ingredients_bannir":[{"nom":<str>,"risque":<str>,"pourquoi":<str>,"alternative_saine":<str>}],"produits_diy":[{"nom":<str>,"description":<str>}],"labels_a_chercher":[<str>],"conseil_eau":<str>,"gestes_a_eviter":[<str>]}';
 
 function callPixtral(b64, key) {
     return mistralPost(key, { model: 'pixtral-12b-2409', max_tokens: 700,
@@ -960,7 +970,7 @@ function callDerm(diag, key) {
     }).then(safeJsonParse);
 }
 function callClean(diag, derm, key) {
-    var p = { type_peau: diag.skin_type, score: diag.score, pathologies: diag.pathologies, sebum: diag.sebum, hydration: diag.hydration, texture: diag.texture, zones: diag.zones_concernees, diagnostic: derm.diagnostic_principal };
+    const p = { type_peau: diag.skin_type, score: diag.score, pathologies: diag.pathologies, sebum: diag.sebum, hydration: diag.hydration, texture: diag.texture, zones: diag.zones_concernees, diagnostic: derm.diagnostic_principal };
     return mistralPost(key, { model: 'mistral-large-latest', max_tokens: 3000,
         messages: [{ role: 'system', content: SYS_CLEAN }, { role: 'user', content: 'Profil:\n' + JSON.stringify(p) + '\n\nGénère la routine clean beauty.' }]
     }).then(safeJsonParse);
@@ -969,14 +979,14 @@ function callClean(diag, derm, key) {
 /* ═══ ORCHESTRATION ═══ */
 function startScan() {
     if (busy) return;
-    var key = document.getElementById('api-key').value.trim();
+    const key = document.getElementById('api-key').value.trim();
     if (!key) { setStatus('CLÉ API REQUISE', '#FF9100'); return; }
 
     busy = true;
-    var btn = document.getElementById('btn-scan');
+    const btn = document.getElementById('btn-scan');
     btn.disabled = true;
 
-    var sl = document.getElementById('scan-line');
+    const sl = document.getElementById('scan-line');
     sl.classList.remove('go'); void sl.offsetWidth; sl.classList.add('go');
 
     setStatus('INITIALISATION CAMÉRA...', '#fff');
@@ -986,7 +996,7 @@ function startScan() {
     waitForCamera(8000).then(function() {
         setStatus("CAPTURE DE L'IMAGE...", '#fff');
         startLd(btn, 'AGENT 1 · PIXTRAL');
-        var b64 = captureFrame();
+        const b64 = captureFrame();
 
         setStatus('ANALYSE VISUELLE...', '#fff');
         return callPixtral(b64, key);
@@ -1024,15 +1034,15 @@ function startScan() {
 
 /* ═══ HUD ═══ */
 function updateHUD(d) {
-    var s = clamp(d.score != null ? d.score : 50, 1, 100);
-    var c = s >= 80 ? '#00E676' : s >= 55 ? '#FFEB3B' : '#FF5252';
+    const s = clamp(d.score != null ? d.score : 50, 1, 100);
+    const c = s >= 80 ? '#00E676' : s >= 55 ? '#FFEB3B' : '#FF5252';
     document.documentElement.style.setProperty('--clr', c);
     document.documentElement.style.setProperty('--glow', hexA(c, 0.35));
-    var C = 2 * Math.PI * 87;
-    var gf = document.getElementById('g-fill');
+    const C = 2 * Math.PI * 87;
+    const gf = document.getElementById('g-fill');
     gf.style.strokeDashoffset = C * (1 - s / 100);
     gf.style.stroke = c; gf.style.filter = 'drop-shadow(0 0 8px ' + c + ')';
-    var gn = document.getElementById('g-num');
+    const gn = document.getElementById('g-num');
     gn.textContent = s; gn.style.color = c;
     gn.style.textShadow = '0 0 20px ' + hexA(c, 0.6);
     bar('b-bacteria','p-bacteria', d.bacteria != null ? d.bacteria : 0, c);
@@ -1041,15 +1051,15 @@ function updateHUD(d) {
     bar('b-hydration','p-hydration',d.hydration!= null ? d.hydration: 0, c);
 }
 function bar(bid, pid, v, c) {
-    var p = Math.round(clamp(v,0,1)*100);
-    var b = document.getElementById(bid); b.style.width = p+'%'; b.style.backgroundColor = c;
-    var l = document.getElementById(pid); l.textContent = p+'%'; l.style.color = c;
+    const p = Math.round(clamp(v,0,1)*100);
+    const b = document.getElementById(bid); b.style.width = p+'%'; b.style.backgroundColor = c;
+    const l = document.getElementById(pid); l.textContent = p+'%'; l.style.color = c;
 }
 
 /* ═══ RENDERS ═══ */
 function renderRapport() {
-    var d = skinData, r = dermData; if (!d || !r) return;
-    var h = '<div class="s-title">Profil Cutané</div>';
+    const d = skinData, r = dermData; if (!d || !r) return;
+    const h = '<div class="s-title">Profil Cutané</div>';
     h += '<span class="skin-badge">' + esc((d.skin_type||'').toUpperCase()) + '</span>';
     h += '<div class="card"><div class="ctitle">Diagnostic principal</div><p>' + esc(r.diagnostic_principal||'') + '</p></div>';
     h += '<div class="card"><div class="ctitle">Profil détaillé</div><p>' + esc(r.profil_peau||'') + '</p></div>';
@@ -1060,7 +1070,7 @@ function renderRapport() {
     }
     if (r.pathologies_identifiees && r.pathologies_identifiees.length) {
         r.pathologies_identifiees.forEach(function(p) {
-            var col = p.severite==='sévère'?'#FF5252':p.severite==='modérée'?'#FFEB3B':'#00E676';
+            const col = p.severite==='sévère'?'#FF5252':p.severite==='modérée'?'#FFEB3B':'#00E676';
             h += '<div class="card"><div class="ctitle">'+esc(p.nom)+' — <span style="color:'+col+'">'+esc(p.severite)+'</span></div><p>'+esc(p.description||'')+'</p></div>';
         });
     }
@@ -1075,8 +1085,8 @@ function renderRapport() {
 }
 
 function renderNettoyage() {
-    var r = dermData; if(!r || !r.nettoyage) return;
-    var h = '<div class="s-title">Protocole de Nettoyage</div>';
+    const r = dermData; if(!r || !r.nettoyage) return;
+    const h = '<div class="s-title">Protocole de Nettoyage</div>';
     r.nettoyage.forEach(function(s) {
         h += '<div class="step"><div class="snum">'+s.etape+'</div><div class="sbody"><div class="stitle">'+esc(s.titre||'')+'</div><div class="sdesc">'+esc(s.action||'')+'</div><div class="smeta">'+(s.produit_type?'🧴 '+esc(s.produit_type):'')+(s.duree?' · ⏱ '+esc(s.duree):'')+(s.frequence?' · 🔁 '+esc(s.frequence):'')+'</div></div></div>';
     });
@@ -1095,8 +1105,8 @@ function renderNettoyage() {
 }
 
 function renderProduits() {
-    var p = dermData && dermData.produits; if(!p) return;
-    var h = '';
+    const p = dermData && dermData.produits; if(!p) return;
+    const h = '';
     if(p.ingredients_actifs&&p.ingredients_actifs.length){ h+='<div class="s-title">Ingrédients Actifs</div><div class="prod-list">'; p.ingredients_actifs.forEach(function(i){h+='<span class="pi a">'+esc(i)+'</span>';}); h+='</div>'; }
     if(p.recommandes&&p.recommandes.length){ h+='<div class="s-title">Produits Recommandés</div><div class="prod-list">'; p.recommandes.forEach(function(i){h+='<span class="pi y">✓ '+esc(i)+'</span>';}); h+='</div>'; }
     if(p.eviter&&p.eviter.length){ h+='<div class="s-title">À Éviter</div><div class="prod-list">'; p.eviter.forEach(function(i){h+='<span class="pi n">✕ '+esc(i)+'</span>';}); h+='</div>'; }
@@ -1104,26 +1114,26 @@ function renderProduits() {
 }
 
 function renderTraitement() {
-    var r = dermData; if(!r||!r.traitements) return;
-    var h = '<div class="s-title">Plan de Traitement</div>';
-    var ORDER = {haute:0,moyenne:1,faible:2};
+    const r = dermData; if(!r||!r.traitements) return;
+    const h = '<div class="s-title">Plan de Traitement</div>';
+    const ORDER = {haute:0,moyenne:1,faible:2};
     r.traitements.slice().sort(function(a,b){ return (ORDER[a.priorite||'faible']||1)-(ORDER[b.priorite||'faible']||1); }).forEach(function(t) {
-        var c = t.priorite==='haute'?'#FF5252':t.priorite==='moyenne'?'#FFEB3B':'#00E676';
+        const c = t.priorite==='haute'?'#FF5252':t.priorite==='moyenne'?'#FFEB3B':'#00E676';
         h += '<div class="card" style="border-left:3px solid '+c+'"><div class="ctitle" style="display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between"><span>'+esc(t.nom||'')+'</span><span style="color:'+c+'">'+esc((t.priorite||'').toUpperCase())+'</span></div><div class="tags" style="margin-bottom:5px"><span class="tag">'+esc(t.type||'')+'</span>'+(t.duree?'<span class="tag">⏱ '+esc(t.duree)+'</span>':'')+'</div><p>'+esc(t.description||'')+'</p></div>';
     });
     document.getElementById('traitement-content').innerHTML = h;
 }
 
 function renderRoutine() {
-    var r = routineData; if(!r) return;
-    var h = '';
+    const r = routineData; if(!r) return;
+    const h = '';
     // Score — SVG arc (universel, pas de conic-gradient)
-    var cs = clamp(r.clean_score!=null?r.clean_score:80,1,100);
-    var cc = cs>=85?'#00E676':cs>=65?'#FFEB3B':'#FF5252';
-    var ang = cs/100*360, rad = ang*Math.PI/180, laf = ang>180?1:0;
-    var ex = +(26+22*Math.sin(rad)).toFixed(2), ey = +(26-22*Math.cos(rad)).toFixed(2);
-    var arcD = cs>=100 ? '' : 'M26,4 A22,22,0,'+laf+',1,'+ex+','+ey;
-    var arcSVG = '<svg width="52" height="52" viewBox="0 0 52 52" style="-webkit-flex-shrink:0;flex-shrink:0">'
+    const cs = clamp(r.clean_score!=null?r.clean_score:80,1,100);
+    const cc = cs>=85?'#00E676':cs>=65?'#FFEB3B':'#FF5252';
+    const ang = cs/100*360, rad = ang*Math.PI/180, laf = ang>180?1:0;
+    const ex = +(26+22*Math.sin(rad)).toFixed(2), ey = +(26-22*Math.cos(rad)).toFixed(2);
+    const arcD = cs>=100 ? '' : 'M26,4 A22,22,0,'+laf+',1,'+ex+','+ey;
+    const arcSVG = '<svg width="52" height="52" viewBox="0 0 52 52" style="-webkit-flex-shrink:0;flex-shrink:0">'
         +'<circle cx="26" cy="26" r="22" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="5"/>'
         +(cs>=100?'<circle cx="26" cy="26" r="22" fill="none" stroke="'+cc+'" stroke-width="5"/>':'<path d="'+arcD+'" fill="none" stroke="'+cc+'" stroke-width="5" stroke-linecap="round"/>')
         +'<circle cx="26" cy="26" r="18" fill="rgba(8,14,26,0.97)"/>'
@@ -1137,8 +1147,8 @@ function renderRoutine() {
         +'</div></div>';
 
     function stepHtml(s) {
-        var tc = s.temperature_eau==='froide'?'#00B0FF':s.temperature_eau==='tiède'?'#FFEB3B':'#aaa';
-        var ing = (s.ingredients_cles&&s.ingredients_cles.length)?'<div class="prod-sain-ing" style="margin-bottom:5px">'+s.ingredients_cles.map(function(i){return '<span class="pi-sain">'+esc(i)+'</span>';}).join('')+'</div>':'';
+        const tc = s.temperature_eau==='froide'?'#00B0FF':s.temperature_eau==='tiède'?'#FFEB3B':'#aaa';
+        const ing = (s.ingredients_cles&&s.ingredients_cles.length)?'<div class="prod-sain-ing" style="margin-bottom:5px">'+s.ingredients_cles.map(function(i){return '<span class="pi-sain">'+esc(i)+'</span>';}).join('')+'</div>':'';
         return '<div class="step"><div class="snum">'+s.etape+'</div><div class="sbody">'
             +'<div class="stitle">'+esc(s.action||'')+'</div>'
             +'<div class="sdesc" style="margin-bottom:5px">'+esc(s.produit_recommande||'')+'</div>'+ing
@@ -1150,14 +1160,14 @@ function renderRoutine() {
     if(r.routine_hebdo&&r.routine_hebdo.length){
         h+='<div class="s-title">📅 Soins Hebdomadaires</div>';
         r.routine_hebdo.forEach(function(s){
-            var ing=(s.ingredients_cles&&s.ingredients_cles.length)?'<div class="prod-sain-ing">'+s.ingredients_cles.map(function(i){return '<span class="pi-sain">'+esc(i)+'</span>';}).join('')+'</div>':'';
+            const ing=(s.ingredients_cles&&s.ingredients_cles.length)?'<div class="prod-sain-ing">'+s.ingredients_cles.map(function(i){return '<span class="pi-sain">'+esc(i)+'</span>';}).join('')+'</div>':'';
             h+='<div class="prod-sain"><div class="prod-sain-header"><div class="prod-sain-name">'+esc(s.action||'')+'</div><div class="clean-star">'+esc(s.frequence||'')+'</div></div><div class="prod-sain-desc">'+esc(s.produit_recommande||'')+'</div>'+ing+'</div>';
         });
     }
     if(r.ingredients_stars&&r.ingredients_stars.length){
         h+='<div class="s-title">⭐ Ingrédients Stars</div>';
         r.ingredients_stars.forEach(function(i){
-            var sc=i.statut==='incontournable'?'safe':i.statut==='recommandé'?'mod':'opt';
+            const sc=i.statut==='incontournable'?'safe':i.statut==='recommandé'?'mod':'opt';
             h+='<div class="ing-card"><div class="ing-header"><div class="ing-name">'+esc(i.nom||'')+'</div><div class="ing-badge '+sc+'">'+esc((i.statut||'').toUpperCase())+'</div></div><div class="ing-desc">'+esc(i.benefices||'')+'</div>'+(i.origine?'<div class="ing-alt">🌍 '+esc(i.origine)+'</div>':'')+(i.certification?'<div class="ing-alt" style="color:#00E676">✔ '+esc(i.certification)+'</div>':'')+'</div>';
         });
     }
@@ -1189,21 +1199,21 @@ function renderRoutine() {
 function initChat(key) {
     chatApiKey = key;
     chatHist = [{ role:'system', content:'Tu es Dr. PureScan, dermatologue expert clean beauty. Données patient :\nPixtral:'+JSON.stringify(skinData)+'\nDermatologue:'+JSON.stringify(dermData)+'\nClean Beauty:'+JSON.stringify(routineData)+'\nRéponds en français. Max 3-4 phrases.' }];
-    var intro = 'Analyse complète. Type : <strong>'+esc(skinData.skin_type||'?')+'</strong> — Score santé <strong>'+(skinData.score||'--')+'/100</strong>'
+    const intro = 'Analyse complète. Type : <strong>'+esc(skinData.skin_type||'?')+'</strong> — Score santé <strong>'+(skinData.score||'--')+'/100</strong>'
         +(routineData?' — Clean Beauty <strong>'+(routineData.clean_score||'--')+'/100</strong> ('+esc(routineData.clean_label||'')+')':'')
         +'. Posez vos questions sur les soins, produits naturels ou votre routine.';
     addBot(intro, true);
 }
 function sendChat() {
     if(chatBusy) return;
-    var inp = document.getElementById('chat-input');
-    var txt = inp.value.trim(); if(!txt) return;
-    var key = chatApiKey || document.getElementById('api-key').value.trim();
+    const inp = document.getElementById('chat-input');
+    const txt = inp.value.trim(); if(!txt) return;
+    const key = chatApiKey || document.getElementById('api-key').value.trim();
     if(!key){ addBot('Veuillez saisir votre clé API Mistral.', false); return; }
     if(!skinData){ addBot('Lancez d\'abord une analyse.', false); return; }
     inp.value = ''; addUser(txt);
     chatBusy = true; document.getElementById('chat-send').disabled = true;
-    var tid = addTyping();
+    const tid = addTyping();
     chatHist.push({ role:'user', content:txt });
     // Troncature : conserver le system prompt + les 20 derniers messages
     if (chatHist.length > 22) {
@@ -1214,23 +1224,23 @@ function sendChat() {
     .catch(function(e){ rmTyping(tid); addBot('Erreur : '+e.message, false); })
     .then(function(){ chatBusy=false; document.getElementById('chat-send').disabled=false; });
 }
-function addUser(t){ var e=mk('div','msg u'); e.textContent=t; app(e); }
+function addUser(t){ const e=mk('div','msg u'); e.textContent=t; app(e); }
 function addBot(t,isHTML){
-    var e=mk('div','msg b');
-    var hdr='<div class="mh">DR. PURESCAN · IA</div>';
+    const e=mk('div','msg b');
+    const hdr='<div class="mh">DR. PURESCAN · IA</div>';
     e.innerHTML = isHTML ? hdr+t : hdr+esc(t).replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');
     app(e);
 }
-var _tc=0;
-function addTyping(){ var id='ty'+(++_tc); var e=mk('div','msg b'); e.id=id; e.innerHTML='<span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>'; app(e); return id; }
-function rmTyping(id){ var e=document.getElementById(id); if(e) e.parentNode.removeChild(e); }
-function mk(t,c){ var e=document.createElement(t); e.className=c; return e; }
-function app(el){ document.getElementById('chat-msgs').appendChild(el); setTimeout(function(){ var s=document.getElementById('chat-scroll'); s.scrollTop=s.scrollHeight; },60); }
+const _tc=0;
+function addTyping(){ const id='ty'+(++_tc); const e=mk('div','msg b'); e.id=id; e.innerHTML='<span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>'; app(e); return id; }
+function rmTyping(id){ const e=document.getElementById(id); if(e) e.parentNode.removeChild(e); }
+function mk(t,c){ const e=document.createElement(t); e.className=c; return e; }
+function app(el){ document.getElementById('chat-msgs').appendChild(el); setTimeout(function(){ const s=document.getElementById('chat-scroll'); s.scrollTop=s.scrollHeight; },60); }
 
 /* ═══ UTILS ═══ */
-function setStatus(t,c){ var e=document.getElementById('status-text'); e.textContent=t; e.style.color=c||'var(--clr)'; }
+function setStatus(t,c){ const e=document.getElementById('status-text'); e.textContent=t; e.style.color=c||'var(--clr)'; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
-function hexA(h,a){ var r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16); return 'rgba('+r+','+g+','+b+','+a+')'; }
+function hexA(h,a){ const r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16); return 'rgba('+r+','+g+','+b+','+a+')'; }
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 /* ═══ INIT — tout dans DOMContentLoaded ═══ */
@@ -1239,8 +1249,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // ── Écran d'autorisation caméra ──
     document.getElementById('perm-btn').addEventListener('click', function() {
-        var btn = document.getElementById('perm-btn');
-        var st  = document.getElementById('perm-status');
+        const btn = document.getElementById('perm-btn');
+        const st  = document.getElementById('perm-status');
         btn.disabled    = true;
         btn.textContent = 'ACTIVATION...';
         st.textContent  = 'DEMANDE EN COURS...';
@@ -1300,5 +1310,24 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <div class="niko-loading hidden" id="nikoLoader"><div class="niko-loading-ring"></div></div>
+
+</main>
+
+<script>
+if('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    const swCode = `
+const CACHE='niko-v1';
+const ASSETS=['./','/index.html'];
+self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS))));
+self.addEventListener('fetch',e=>e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request))));
+self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k))))));
+    `;
+    const blob = new Blob([swCode],{type:'text/javascript'});
+    const swURL = URL.createObjectURL(blob);
+    navigator.serviceWorker.register(swURL).catch(()=>{});
+  });
+}
+</script>
 </body>
 </html>
