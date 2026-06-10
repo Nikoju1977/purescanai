@@ -777,22 +777,22 @@ function nikoRetryBtn(container, fn) {
 
 <script>
 /* ═══ STATE ═══ */
-const skinData = null, dermData = null, routineData = null;
-const chatHist = [], chatApiKey = '';
-const busy = false, chatBusy = false;
-const _ldTimer = null;
+let skinData = null, dermData = null, routineData = null;
+let chatHist = [], chatApiKey = '';
+let busy = false, chatBusy = false;
+let _ldTimer = null;
 
 /* ═══ TABS ═══ */
 function initTabs() {
-    const btns  = document.querySelectorAll('.tab-btn');
-    const panes = document.querySelectorAll('.tab-pane');
-    for (const i = 0; i < btns.length; i++) {
+    let btns  = document.querySelectorAll('.tab-btn');
+    let panes = document.querySelectorAll('.tab-pane');
+    for (let i = 0; i < btns.length; i++) {
         (function(btn) {
             btn.addEventListener('click', function() {
-                for (const j = 0; j < btns.length;  j++) btns[j].classList.remove('active');
-                for (const j = 0; j < panes.length; j++) panes[j].classList.remove('active');
+                for (let j = 0; j < btns.length;  j++) btns[j].classList.remove('active');
+                for (let j = 0; j < panes.length; j++) panes[j].classList.remove('active');
                 btn.classList.add('active');
-                const p = document.getElementById('tab-' + btn.getAttribute('data-tab'));
+                let p = document.getElementById('tab-' + btn.getAttribute('data-tab'));
                 if (p) p.classList.add('active');
             });
         })(btns[i]);
@@ -800,12 +800,12 @@ function initTabs() {
 }
 
 /* ═══ CAMERA ═══ */
-const video       = document.getElementById('cam');
-const cv          = document.getElementById('capture-canvas');
-const cx          = cv.getContext('2d');
-const camStream   = null;
-const cameraReady = false;
-const cameraError = false;
+let video       = document.getElementById('cam');
+let cv          = document.getElementById('capture-canvas');
+let cx          = cv.getContext('2d');
+let camStream   = null;
+let cameraReady = false;
+let cameraError = false;
 
 function markReady() {
     if (!cameraReady && video.videoWidth > 0) {
@@ -836,7 +836,7 @@ function camErrMsg(name) {
 }
 
 function showCamOverlay(title, msg, showRetry) {
-    const ov = document.getElementById('cam-overlay');
+    let ov = document.getElementById('cam-overlay');
     document.getElementById('cam-overlay-title').textContent = title;
     document.getElementById('cam-overlay-msg').textContent   = msg;
     document.getElementById('cam-retry-btn').style.display = showRetry ? 'block' : 'none';
@@ -858,9 +858,8 @@ function hideCamOverlay() {
 function checkPermissionAndSetup() {
     // Permissions API disponible (Chrome, Edge, Firefox récent)
     if (navigator.permissions && navigator.permissions.query) {
-        try {
-  const result = await navigator.permissions.query({ name: 'camera' });
-  if (result.state === 'granted') {
+        navigator.permissions.query({ name: 'camera' }).then(function(result) {
+            if (result.state === 'granted') {
                 // Déjà autorisé → on saute l'écran de permission
                 hidePerm();
                 setupCamera();
@@ -884,9 +883,7 @@ function checkPermissionAndSetup() {
         }).catch(function() {
             // Permissions API non supportée ou erreur → écran d'autorisation par défaut
             showPerm();
-} catch(e) {
-  console.error(e)
-};
+        });
     } else {
         // Pas de Permissions API (Safari < 16, vieux Android) → écran d'autorisation direct
         showPerm();
@@ -916,7 +913,7 @@ function setupCamera() {
     video.addEventListener('canplaythrough', markReady);
     video.addEventListener('canplay',        markReady);
 
-    const pollId = setInterval(function() {
+    let pollId = setInterval(function() {
         if (video.videoWidth > 0 && video.readyState >= 2) { markReady(); clearInterval(pollId); }
     }, 200);
 
@@ -924,7 +921,7 @@ function setupCamera() {
 }
 
 // 'environment' = caméra arrière, 'user' = caméra avant
-const currentFacing = 'environment';
+let currentFacing = 'environment';
 
 function requestCamera() {
     requestCameraWith(currentFacing);
@@ -936,7 +933,7 @@ function requestCameraWith(facing) {
     hideCamOverlay();
 
     // Construire les options de fallback selon la caméra demandée
-    const opts;
+    let opts;
     if (facing === 'user') {
         opts = [
             { video: { facingMode: { exact: 'user' } }, audio: false },
@@ -953,18 +950,14 @@ function requestCameraWith(facing) {
 
     function tryNext(i, lastErr) {
         if (i >= opts.length) {
-            const info = camErrMsg(lastErr || 'Unknown');
+            let info = camErrMsg(lastErr || 'Unknown');
             showCamOverlay(info.title, info.msg, true);
             cameraError = true;
             return;
         }
-        try {
-  const stream = await navigator.mediaDevices.getUserMedia(opts[i]);
-  if (camStream) {
-                camStream.getTracks().forEach(function(t){ t.stop();
-} catch(e) {
-  console.error(e)
-};
+        navigator.mediaDevices.getUserMedia(opts[i]).then(function(stream) {
+            if (camStream) {
+                camStream.getTracks().forEach(function(t){ t.stop(); });
             }
             camStream   = stream;
             cameraReady = false;
@@ -980,7 +973,7 @@ function requestCameraWith(facing) {
             console.warn('getUserMedia opt ' + i + ' (' + e.name + ') facing=' + facing);
             if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError' ||
                 e.name === 'NotFoundError'   || e.name === 'SecurityError') {
-                const info = camErrMsg(e.name);
+                let info = camErrMsg(e.name);
                 showCamOverlay(info.title, info.msg, e.name !== 'NotFoundError');
                 cameraError = true;
             } else {
@@ -993,7 +986,7 @@ function requestCameraWith(facing) {
 
 function flipCamera() {
     currentFacing = (currentFacing === 'environment') ? 'user' : 'environment';
-    const btn = document.getElementById('btn-flip');
+    let btn = document.getElementById('btn-flip');
     // Animation rotation du bouton
     btn.style.webkitTransition = 'transform 0.35s ease';
     btn.style.transition       = 'transform 0.35s ease';
@@ -1009,7 +1002,7 @@ function flipCamera() {
 
 function tryPlay() {
     if (!video.srcObject) return;
-    const p = video.play();
+    let p = video.play();
     if (p && typeof p.then === 'function') {
         p.catch(function(e) {
             console.warn('video.play() rejeté (' + e.name + ')');
@@ -1028,7 +1021,7 @@ function waitForCamera(timeoutMs) {
         tryPlay(); // relance dans contexte geste user (débloque iOS autoplay)
         if (cameraReady && video.videoWidth > 0) { resolve(); return; }
 
-        const elapsed = 0, interval = 100;
+        let elapsed = 0, interval = 100;
 
         function onFrame() {
             if (video.videoWidth > 0) { cleanup(); resolve(); }
@@ -1036,7 +1029,7 @@ function waitForCamera(timeoutMs) {
         video.addEventListener('timeupdate', onFrame);
         video.addEventListener('playing',    onFrame);
 
-        const timer = setInterval(function() {
+        let timer = setInterval(function() {
             elapsed += interval;
             if (video.videoWidth > 0 && video.readyState >= 2) {
                 cleanup(); resolve();
@@ -1059,10 +1052,10 @@ function waitForCamera(timeoutMs) {
 }
 
 function captureFrame() {
-    const MAX = 640;
-    const w0 = video.videoWidth  || 1;
-    const h0 = video.videoHeight || 1;
-    const r  = Math.min(MAX / w0, MAX / h0, 1);
+    let MAX = 640;
+    let w0 = video.videoWidth  || 1;
+    let h0 = video.videoHeight || 1;
+    let r  = Math.min(MAX / w0, MAX / h0, 1);
     cv.width  = Math.round(w0 * r);
     cv.height = Math.round(h0 * r);
     // Caméra avant : on annule le miroir CSS pour envoyer l'image non-mirrorée à l'IA
@@ -1080,7 +1073,7 @@ function captureFrame() {
 
 /* ═══ LOADER JS — FIX: animation content non supportée en CSS ═══ */
 function startLd(el, base) {
-    const d = 0;
+    let d = 0;
     el.textContent = base + '.';
     _ldTimer = setInterval(function() { d = (d + 1) % 4; el.textContent = base + new Array(d + 2).join('.'); }, 400);
 }
@@ -1100,19 +1093,16 @@ function mistralPost(key, body) {
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
         body: JSON.stringify(body)
     }).then(function(res) {
-        return try {
-  const d = await res.json();
-  if (!res.ok) throw new Error(d.message || 'HTTP ' + res.status);
+        return res.json().then(function(d) {
+            if (!res.ok) throw new Error(d.message || 'HTTP ' + res.status);
             return (d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content) || '{}';
-} catch(e) {
-  console.error(e)
-};
+        });
     });
 }
 
-const SYS_PIX = 'Tu es un capteur dermatologique. Analyse l\'image et retourne UNIQUEMENT un JSON valide (sans backticks) : {"score":<1-100>,"skin_type":<"normale"|"grasse"|"sèche"|"mixte"|"sensible">,"bacteria":<0.0-1.0>,"fungi":<0.0-1.0>,"sebum":<0.0-1.0>,"hydration":<0.0-1.0>,"pathologies":[<string>],"zones_concernees":[<string>],"teint":<"uniforme"|"irrégulier"|"terne"|"lumineux">,"texture":<"lisse"|"rugueuse"|"grumeleuse"|"mixte">,"status":<string MAJUSCULES>,"observation":<2-3 phrases fr>}';
-const SYS_DERM = 'Tu es Dr. PureScan, dermatologue expert. Réponds UNIQUEMENT avec un JSON valide (sans backticks) : {"profil_peau":<str>,"diagnostic_principal":<str>,"pathologies_identifiees":[{"nom":<str>,"severite":<"légère"|"modérée"|"sévère">,"description":<str>}],"nettoyage":[{"etape":<int>,"titre":<str>,"action":<str>,"produit_type":<str>,"duree":<str>,"frequence":<str>}],"produits":{"recommandes":[<str>],"eviter":[<str>],"ingredients_actifs":[<str>]},"routine_matin":[<str>],"routine_soir":[<str>],"traitements":[{"nom":<str>,"type":<str>,"description":<str>,"duree":<str>,"priorite":<"haute"|"moyenne"|"faible">}],"conseils_lifestyle":[<str>],"alerte_medicale":<str|null>,"pronostic":<str>}';
-const SYS_CLEAN = 'Tu es experte en clean beauty. Zéro paraben, SLS, silicone, parfum synthétique, PEG. Bio certifié. Réponds UNIQUEMENT avec un JSON valide (sans backticks) : {"clean_score":<1-100>,"clean_label":<"ULTRA-CLEAN"|"TRÈS CLEAN"|"CLEAN"|"ACCEPTABLE">,"philosophie":<str>,"routine_matin":[{"etape":<int>,"action":<str>,"produit_recommande":<str>,"ingredients_cles":[<str>],"pourquoi_sain":<str>,"duree":<str>,"temperature_eau":<"froide"|"tiède"|"ambiante">}],"routine_soir":[/*même*/],"routine_hebdo":[{"frequence":<str>,"action":<str>,"produit_recommande":<str>,"ingredients_cles":[<str>]}],"ingredients_stars":[{"nom":<str>,"origine":<str>,"benefices":<str>,"certification":<str>,"statut":<"incontournable"|"recommandé"|"optionnel">}],"ingredients_bannir":[{"nom":<str>,"risque":<str>,"pourquoi":<str>,"alternative_saine":<str>}],"produits_diy":[{"nom":<str>,"description":<str>}],"labels_a_chercher":[<str>],"conseil_eau":<str>,"gestes_a_eviter":[<str>]}';
+let SYS_PIX = 'Tu es un capteur dermatologique. Analyse l\'image et retourne UNIQUEMENT un JSON valide (sans backticks) : {"score":<1-100>,"skin_type":<"normale"|"grasse"|"sèche"|"mixte"|"sensible">,"bacteria":<0.0-1.0>,"fungi":<0.0-1.0>,"sebum":<0.0-1.0>,"hydration":<0.0-1.0>,"pathologies":[<string>],"zones_concernees":[<string>],"teint":<"uniforme"|"irrégulier"|"terne"|"lumineux">,"texture":<"lisse"|"rugueuse"|"grumeleuse"|"mixte">,"status":<string MAJUSCULES>,"observation":<2-3 phrases fr>}';
+let SYS_DERM = 'Tu es Dr. PureScan, dermatologue expert. Réponds UNIQUEMENT avec un JSON valide (sans backticks) : {"profil_peau":<str>,"diagnostic_principal":<str>,"pathologies_identifiees":[{"nom":<str>,"severite":<"légère"|"modérée"|"sévère">,"description":<str>}],"nettoyage":[{"etape":<int>,"titre":<str>,"action":<str>,"produit_type":<str>,"duree":<str>,"frequence":<str>}],"produits":{"recommandes":[<str>],"eviter":[<str>],"ingredients_actifs":[<str>]},"routine_matin":[<str>],"routine_soir":[<str>],"traitements":[{"nom":<str>,"type":<str>,"description":<str>,"duree":<str>,"priorite":<"haute"|"moyenne"|"faible">}],"conseils_lifestyle":[<str>],"alerte_medicale":<str|null>,"pronostic":<str>}';
+let SYS_CLEAN = 'Tu es experte en clean beauty. Zéro paraben, SLS, silicone, parfum synthétique, PEG. Bio certifié. Réponds UNIQUEMENT avec un JSON valide (sans backticks) : {"clean_score":<1-100>,"clean_label":<"ULTRA-CLEAN"|"TRÈS CLEAN"|"CLEAN"|"ACCEPTABLE">,"philosophie":<str>,"routine_matin":[{"etape":<int>,"action":<str>,"produit_recommande":<str>,"ingredients_cles":[<str>],"pourquoi_sain":<str>,"duree":<str>,"temperature_eau":<"froide"|"tiède"|"ambiante">}],"routine_soir":[/*même*/],"routine_hebdo":[{"frequence":<str>,"action":<str>,"produit_recommande":<str>,"ingredients_cles":[<str>]}],"ingredients_stars":[{"nom":<str>,"origine":<str>,"benefices":<str>,"certification":<str>,"statut":<"incontournable"|"recommandé"|"optionnel">}],"ingredients_bannir":[{"nom":<str>,"risque":<str>,"pourquoi":<str>,"alternative_saine":<str>}],"produits_diy":[{"nom":<str>,"description":<str>}],"labels_a_chercher":[<str>],"conseil_eau":<str>,"gestes_a_eviter":[<str>]}';
 
 function callPixtral(b64, key) {
     return mistralPost(key, { model: 'pixtral-12b-2409', max_tokens: 700,
@@ -1126,7 +1116,7 @@ function callDerm(diag, key) {
     }).then(safeJsonParse);
 }
 function callClean(diag, derm, key) {
-    const p = { type_peau: diag.skin_type, score: diag.score, pathologies: diag.pathologies, sebum: diag.sebum, hydration: diag.hydration, texture: diag.texture, zones: diag.zones_concernees, diagnostic: derm.diagnostic_principal };
+    let p = { type_peau: diag.skin_type, score: diag.score, pathologies: diag.pathologies, sebum: diag.sebum, hydration: diag.hydration, texture: diag.texture, zones: diag.zones_concernees, diagnostic: derm.diagnostic_principal };
     return mistralPost(key, { model: 'mistral-large-latest', max_tokens: 3000,
         messages: [{ role: 'system', content: SYS_CLEAN }, { role: 'user', content: 'Profil:\n' + JSON.stringify(p) + '\n\nGénère la routine clean beauty.' }]
     }).then(safeJsonParse);
@@ -1135,14 +1125,14 @@ function callClean(diag, derm, key) {
 /* ═══ ORCHESTRATION ═══ */
 function startScan() {
     if (busy) return;
-    const key = document.getElementById('api-key').value.trim();
+    let key = document.getElementById('api-key').value.trim();
     if (!key) { setStatus('CLÉ API REQUISE', '#FF9100'); return; }
 
     busy = true;
-    const btn = document.getElementById('btn-scan');
+    let btn = document.getElementById('btn-scan');
     btn.disabled = true;
 
-    const sl = document.getElementById('scan-line');
+    let sl = document.getElementById('scan-line');
     sl.classList.remove('go'); void sl.offsetWidth; sl.classList.add('go');
 
     setStatus('INITIALISATION CAMÉRA...', '#fff');
@@ -1152,7 +1142,7 @@ function startScan() {
     waitForCamera(8000).then(function() {
         setStatus("CAPTURE DE L'IMAGE...", '#fff');
         startLd(btn, 'AGENT 1 · PIXTRAL');
-        const b64 = captureFrame();
+        let b64 = captureFrame();
 
         setStatus('ANALYSE VISUELLE...', '#fff');
         return callPixtral(b64, key);
@@ -1190,15 +1180,15 @@ function startScan() {
 
 /* ═══ HUD ═══ */
 function updateHUD(d) {
-    const s = clamp(d.score != null ? d.score : 50, 1, 100);
-    const c = s >= 80 ? '#00E676' : s >= 55 ? '#FFEB3B' : '#FF5252';
+    let s = clamp(d.score != null ? d.score : 50, 1, 100);
+    let c = s >= 80 ? '#00E676' : s >= 55 ? '#FFEB3B' : '#FF5252';
     document.documentElement.style.setProperty('--clr', c);
     document.documentElement.style.setProperty('--glow', hexA(c, 0.35));
-    const C = 2 * Math.PI * 87;
-    const gf = document.getElementById('g-fill');
+    let C = 2 * Math.PI * 87;
+    let gf = document.getElementById('g-fill');
     gf.style.strokeDashoffset = C * (1 - s / 100);
     gf.style.stroke = c; gf.style.filter = 'drop-shadow(0 0 8px ' + c + ')';
-    const gn = document.getElementById('g-num');
+    let gn = document.getElementById('g-num');
     gn.textContent = s; gn.style.color = c;
     gn.style.textShadow = '0 0 20px ' + hexA(c, 0.6);
     bar('b-bacteria','p-bacteria', d.bacteria != null ? d.bacteria : 0, c);
@@ -1207,15 +1197,15 @@ function updateHUD(d) {
     bar('b-hydration','p-hydration',d.hydration!= null ? d.hydration: 0, c);
 }
 function bar(bid, pid, v, c) {
-    const p = Math.round(clamp(v,0,1)*100);
-    const b = document.getElementById(bid); b.style.width = p+'%'; b.style.backgroundColor = c;
-    const l = document.getElementById(pid); l.textContent = p+'%'; l.style.color = c;
+    let p = Math.round(clamp(v,0,1)*100);
+    let b = document.getElementById(bid); b.style.width = p+'%'; b.style.backgroundColor = c;
+    let l = document.getElementById(pid); l.textContent = p+'%'; l.style.color = c;
 }
 
 /* ═══ RENDERS ═══ */
 function renderRapport() {
-    const d = skinData, r = dermData; if (!d || !r) return;
-    const h = '<div class="s-title">Profil Cutané</div>';
+    let d = skinData, r = dermData; if (!d || !r) return;
+    let h = '<div class="s-title">Profil Cutané</div>';
     h += '<span class="skin-badge">' + esc((d.skin_type||'').toUpperCase()) + '</span>';
     h += '<div class="card"><div class="ctitle">Diagnostic principal</div><p>' + esc(r.diagnostic_principal||'') + '</p></div>';
     h += '<div class="card"><div class="ctitle">Profil détaillé</div><p>' + esc(r.profil_peau||'') + '</p></div>';
@@ -1226,7 +1216,7 @@ function renderRapport() {
     }
     if (r.pathologies_identifiees && r.pathologies_identifiees.length) {
         r.pathologies_identifiees.forEach(function(p) {
-            const col = p.severite==='sévère'?'#FF5252':p.severite==='modérée'?'#FFEB3B':'#00E676';
+            let col = p.severite==='sévère'?'#FF5252':p.severite==='modérée'?'#FFEB3B':'#00E676';
             h += '<div class="card"><div class="ctitle">'+esc(p.nom)+' — <span style="color:'+col+'">'+esc(p.severite)+'</span></div><p>'+esc(p.description||'')+'</p></div>';
         });
     }
@@ -1241,8 +1231,8 @@ function renderRapport() {
 }
 
 function renderNettoyage() {
-    const r = dermData; if(!r || !r.nettoyage) return;
-    const h = '<div class="s-title">Protocole de Nettoyage</div>';
+    let r = dermData; if(!r || !r.nettoyage) return;
+    let h = '<div class="s-title">Protocole de Nettoyage</div>';
     r.nettoyage.forEach(function(s) {
         h += '<div class="step"><div class="snum">'+s.etape+'</div><div class="sbody"><div class="stitle">'+esc(s.titre||'')+'</div><div class="sdesc">'+esc(s.action||'')+'</div><div class="smeta">'+(s.produit_type?'🧴 '+esc(s.produit_type):'')+(s.duree?' · ⏱ '+esc(s.duree):'')+(s.frequence?' · 🔁 '+esc(s.frequence):'')+'</div></div></div>';
     });
@@ -1261,8 +1251,8 @@ function renderNettoyage() {
 }
 
 function renderProduits() {
-    const p = dermData && dermData.produits; if(!p) return;
-    const h = '';
+    let p = dermData && dermData.produits; if(!p) return;
+    let h = '';
     if(p.ingredients_actifs&&p.ingredients_actifs.length){ h+='<div class="s-title">Ingrédients Actifs</div><div class="prod-list">'; p.ingredients_actifs.forEach(function(i){h+='<span class="pi a">'+esc(i)+'</span>';}); h+='</div>'; }
     if(p.recommandes&&p.recommandes.length){ h+='<div class="s-title">Produits Recommandés</div><div class="prod-list">'; p.recommandes.forEach(function(i){h+='<span class="pi y">✓ '+esc(i)+'</span>';}); h+='</div>'; }
     if(p.eviter&&p.eviter.length){ h+='<div class="s-title">À Éviter</div><div class="prod-list">'; p.eviter.forEach(function(i){h+='<span class="pi n">✕ '+esc(i)+'</span>';}); h+='</div>'; }
@@ -1270,26 +1260,26 @@ function renderProduits() {
 }
 
 function renderTraitement() {
-    const r = dermData; if(!r||!r.traitements) return;
-    const h = '<div class="s-title">Plan de Traitement</div>';
-    const ORDER = {haute:0,moyenne:1,faible:2};
+    let r = dermData; if(!r||!r.traitements) return;
+    let h = '<div class="s-title">Plan de Traitement</div>';
+    let ORDER = {haute:0,moyenne:1,faible:2};
     r.traitements.slice().sort(function(a,b){ return (ORDER[a.priorite||'faible']||1)-(ORDER[b.priorite||'faible']||1); }).forEach(function(t) {
-        const c = t.priorite==='haute'?'#FF5252':t.priorite==='moyenne'?'#FFEB3B':'#00E676';
+        let c = t.priorite==='haute'?'#FF5252':t.priorite==='moyenne'?'#FFEB3B':'#00E676';
         h += '<div class="card" style="border-left:3px solid '+c+'"><div class="ctitle" style="display:-webkit-flex;display:flex;-webkit-justify-content:space-between;justify-content:space-between"><span>'+esc(t.nom||'')+'</span><span style="color:'+c+'">'+esc((t.priorite||'').toUpperCase())+'</span></div><div class="tags" style="margin-bottom:5px"><span class="tag">'+esc(t.type||'')+'</span>'+(t.duree?'<span class="tag">⏱ '+esc(t.duree)+'</span>':'')+'</div><p>'+esc(t.description||'')+'</p></div>';
     });
     document.getElementById('traitement-content').innerHTML = h;
 }
 
 function renderRoutine() {
-    const r = routineData; if(!r) return;
-    const h = '';
+    let r = routineData; if(!r) return;
+    let h = '';
     // Score — SVG arc (universel, pas de conic-gradient)
-    const cs = clamp(r.clean_score!=null?r.clean_score:80,1,100);
-    const cc = cs>=85?'#00E676':cs>=65?'#FFEB3B':'#FF5252';
-    const ang = cs/100*360, rad = ang*Math.PI/180, laf = ang>180?1:0;
-    const ex = +(26+22*Math.sin(rad)).toFixed(2), ey = +(26-22*Math.cos(rad)).toFixed(2);
-    const arcD = cs>=100 ? '' : 'M26,4 A22,22,0,'+laf+',1,'+ex+','+ey;
-    const arcSVG = '<svg width="52" height="52" viewBox="0 0 52 52" style="-webkit-flex-shrink:0;flex-shrink:0">'
+    let cs = clamp(r.clean_score!=null?r.clean_score:80,1,100);
+    let cc = cs>=85?'#00E676':cs>=65?'#FFEB3B':'#FF5252';
+    let ang = cs/100*360, rad = ang*Math.PI/180, laf = ang>180?1:0;
+    let ex = +(26+22*Math.sin(rad)).toFixed(2), ey = +(26-22*Math.cos(rad)).toFixed(2);
+    let arcD = cs>=100 ? '' : 'M26,4 A22,22,0,'+laf+',1,'+ex+','+ey;
+    let arcSVG = '<svg width="52" height="52" viewBox="0 0 52 52" style="-webkit-flex-shrink:0;flex-shrink:0">'
         +'<circle cx="26" cy="26" r="22" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="5"/>'
         +(cs>=100?'<circle cx="26" cy="26" r="22" fill="none" stroke="'+cc+'" stroke-width="5"/>':'<path d="'+arcD+'" fill="none" stroke="'+cc+'" stroke-width="5" stroke-linecap="round"/>')
         +'<circle cx="26" cy="26" r="18" fill="rgba(8,14,26,0.97)"/>'
@@ -1303,8 +1293,8 @@ function renderRoutine() {
         +'</div></div>';
 
     function stepHtml(s) {
-        const tc = s.temperature_eau==='froide'?'#00B0FF':s.temperature_eau==='tiède'?'#FFEB3B':'#aaa';
-        const ing = (s.ingredients_cles&&s.ingredients_cles.length)?'<div class="prod-sain-ing" style="margin-bottom:5px">'+s.ingredients_cles.map(function(i){return '<span class="pi-sain">'+esc(i)+'</span>';}).join('')+'</div>':'';
+        let tc = s.temperature_eau==='froide'?'#00B0FF':s.temperature_eau==='tiède'?'#FFEB3B':'#aaa';
+        let ing = (s.ingredients_cles&&s.ingredients_cles.length)?'<div class="prod-sain-ing" style="margin-bottom:5px">'+s.ingredients_cles.map(function(i){return '<span class="pi-sain">'+esc(i)+'</span>';}).join('')+'</div>':'';
         return '<div class="step"><div class="snum">'+s.etape+'</div><div class="sbody">'
             +'<div class="stitle">'+esc(s.action||'')+'</div>'
             +'<div class="sdesc" style="margin-bottom:5px">'+esc(s.produit_recommande||'')+'</div>'+ing
@@ -1316,14 +1306,14 @@ function renderRoutine() {
     if(r.routine_hebdo&&r.routine_hebdo.length){
         h+='<div class="s-title">📅 Soins Hebdomadaires</div>';
         r.routine_hebdo.forEach(function(s){
-            const ing=(s.ingredients_cles&&s.ingredients_cles.length)?'<div class="prod-sain-ing">'+s.ingredients_cles.map(function(i){return '<span class="pi-sain">'+esc(i)+'</span>';}).join('')+'</div>':'';
+            let ing=(s.ingredients_cles&&s.ingredients_cles.length)?'<div class="prod-sain-ing">'+s.ingredients_cles.map(function(i){return '<span class="pi-sain">'+esc(i)+'</span>';}).join('')+'</div>':'';
             h+='<div class="prod-sain"><div class="prod-sain-header"><div class="prod-sain-name">'+esc(s.action||'')+'</div><div class="clean-star">'+esc(s.frequence||'')+'</div></div><div class="prod-sain-desc">'+esc(s.produit_recommande||'')+'</div>'+ing+'</div>';
         });
     }
     if(r.ingredients_stars&&r.ingredients_stars.length){
         h+='<div class="s-title">⭐ Ingrédients Stars</div>';
         r.ingredients_stars.forEach(function(i){
-            const sc=i.statut==='incontournable'?'safe':i.statut==='recommandé'?'mod':'opt';
+            let sc=i.statut==='incontournable'?'safe':i.statut==='recommandé'?'mod':'opt';
             h+='<div class="ing-card"><div class="ing-header"><div class="ing-name">'+esc(i.nom||'')+'</div><div class="ing-badge '+sc+'">'+esc((i.statut||'').toUpperCase())+'</div></div><div class="ing-desc">'+esc(i.benefices||'')+'</div>'+(i.origine?'<div class="ing-alt">🌍 '+esc(i.origine)+'</div>':'')+(i.certification?'<div class="ing-alt" style="color:#00E676">✔ '+esc(i.certification)+'</div>':'')+'</div>';
         });
     }
@@ -1355,52 +1345,48 @@ function renderRoutine() {
 function initChat(key) {
     chatApiKey = key;
     chatHist = [{ role:'system', content:'Tu es Dr. PureScan, dermatologue expert clean beauty. Données patient :\nPixtral:'+JSON.stringify(skinData)+'\nDermatologue:'+JSON.stringify(dermData)+'\nClean Beauty:'+JSON.stringify(routineData)+'\nRéponds en français. Max 3-4 phrases.' }];
-    const intro = 'Analyse complète. Type : <strong>'+esc(skinData.skin_type||'?')+'</strong> — Score santé <strong>'+(skinData.score||'--')+'/100</strong>'
+    let intro = 'Analyse complète. Type : <strong>'+esc(skinData.skin_type||'?')+'</strong> — Score santé <strong>'+(skinData.score||'--')+'/100</strong>'
         +(routineData?' — Clean Beauty <strong>'+(routineData.clean_score||'--')+'/100</strong> ('+esc(routineData.clean_label||'')+')':'')
         +'. Posez vos questions sur les soins, produits naturels ou votre routine.';
     addBot(intro, true);
 }
 function sendChat() {
     if(chatBusy) return;
-    const inp = document.getElementById('chat-input');
-    const txt = inp.value.trim(); if(!txt) return;
-    const key = chatApiKey || document.getElementById('api-key').value.trim();
+    let inp = document.getElementById('chat-input');
+    let txt = inp.value.trim(); if(!txt) return;
+    let key = chatApiKey || document.getElementById('api-key').value.trim();
     if(!key){ addBot('Veuillez saisir votre clé API Mistral.', false); return; }
     if(!skinData){ addBot('Lancez d\'abord une analyse.', false); return; }
     inp.value = ''; addUser(txt);
     chatBusy = true; document.getElementById('chat-send').disabled = true;
-    const tid = addTyping();
+    let tid = addTyping();
     chatHist.push({ role:'user', content:txt });
     // Troncature : conserver le system prompt + les 20 derniers messages
     if (chatHist.length > 22) {
         chatHist = [chatHist[0]].concat(chatHist.slice(-20));
     }
-    try {
-  const raw = await mistralPost(key, { model:'mistral-large-latest', max_tokens:450, messages:chatHist });
-  rmTyping(tid); chatHist.push({role:'assistant',content:raw
-} catch(e) {
-  console.error(e)
-}; addBot(raw, false); })
+    mistralPost(key, { model:'mistral-large-latest', max_tokens:450, messages:chatHist })
+    .then(function(raw){ rmTyping(tid); chatHist.push({role:'assistant',content:raw}); addBot(raw, false); })
     .catch(function(e){ rmTyping(tid); addBot('Erreur : '+e.message, false); })
     .then(function(){ chatBusy=false; document.getElementById('chat-send').disabled=false; });
 }
-function addUser(t){ const e=mk('div','msg u'); e.textContent=t; app(e); }
+function addUser(t){ let e=mk('div','msg u'); e.textContent=t; app(e); }
 function addBot(t,isHTML){
-    const e=mk('div','msg b');
-    const hdr='<div class="mh">DR. PURESCAN · IA</div>';
+    let e=mk('div','msg b');
+    let hdr='<div class="mh">DR. PURESCAN · IA</div>';
     e.innerHTML = isHTML ? hdr+t : hdr+esc(t).replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');
     app(e);
 }
-const _tc=0;
-function addTyping(){ const id='ty'+(++_tc); const e=mk('div','msg b'); e.id=id; e.innerHTML='<span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>'; app(e); return id; }
-function rmTyping(id){ const e=document.getElementById(id); if(e) e.parentNode.removeChild(e); }
-function mk(t,c){ const e=document.createElement(t); e.className=c; return e; }
-function app(el){ document.getElementById('chat-msgs').appendChild(el); setTimeout(function(){ const s=document.getElementById('chat-scroll'); s.scrollTop=s.scrollHeight; },60); }
+let _tc=0;
+function addTyping(){ let id='ty'+(++_tc); let e=mk('div','msg b'); e.id=id; e.innerHTML='<span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>'; app(e); return id; }
+function rmTyping(id){ let e=document.getElementById(id); if(e) e.parentNode.removeChild(e); }
+function mk(t,c){ let e=document.createElement(t); e.className=c; return e; }
+function app(el){ document.getElementById('chat-msgs').appendChild(el); setTimeout(function(){ let s=document.getElementById('chat-scroll'); s.scrollTop=s.scrollHeight; },60); }
 
 /* ═══ UTILS ═══ */
-function setStatus(t,c){ const e=document.getElementById('status-text'); e.textContent=t; e.style.color=c||'var(--clr)'; }
+function setStatus(t,c){ let e=document.getElementById('status-text'); e.textContent=t; e.style.color=c||'var(--clr)'; }
 function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
-function hexA(h,a){ const r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16); return 'rgba('+r+','+g+','+b+','+a+')'; }
+function hexA(h,a){ let r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16); return 'rgba('+r+','+g+','+b+','+a+')'; }
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 /* ═══ INIT — tout dans DOMContentLoaded ═══ */
@@ -1409,8 +1395,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // ── Écran d'autorisation caméra ──
     document.getElementById('perm-btn').addEventListener('click', function() {
-        const btn = document.getElementById('perm-btn');
-        const st  = document.getElementById('perm-status');
+        let btn = document.getElementById('perm-btn');
+        let st  = document.getElementById('perm-status');
         btn.disabled    = true;
         btn.textContent = 'ACTIVATION...';
         st.textContent  = 'DEMANDE EN COURS...';
@@ -1420,12 +1406,9 @@ document.addEventListener('DOMContentLoaded', function() {
             showCamOverlay('CAMERA NON DISPONIBLE', 'Utilisez Chrome ou Safari en HTTPS.', false);
             cameraError = true; return;
         }
-        try {
-  const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-  stream.getTracks().forEach(function(t){ t.stop();
-} catch(e) {
-  console.error(e)
-};
+        navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+            .then(function(stream) {
+                stream.getTracks().forEach(function(t){ t.stop(); });
                 hidePerm();
                 setupCamera();
             })
