@@ -1,29 +1,27 @@
-# 🧪 PureScan AI
-**Studio Niko Design** — Scanner de produits et analyse IA des ingrédients.
+# PureScan AI — exploration dermatologique
 
-## ✨ Fonctionnalités
-- Scan de produits via caméra
-- Analyse ingrédients / composition
-- Score santé et toxicité
-- Recommandations alternatives
+**Catégorie :** interface web expérimentale pour l'analyse visuelle de la peau · Studio Niko Design.
 
-## 🛠 Stack
-`HTML` · `Mistral AI` · `Pixtral-12B`
+## Ce que fait l'application
 
-## 👤 Auteur
-**Nicolas Julienne** — [Studio Niko Design](https://github.com/Nikoju1977)
-📧 nicolasjulienne.nj@gmail.com
+L'interface actuelle est intitulée **« PureScan AI — Dermatologue v6.0 »**. Elle propose l'accès à la caméra, un parcours de scan cutané, un lancement d'analyse dermatologique, une section rapport et des espaces de navigation consacrés au nettoyage, aux produits, à la routine, au traitement et au chat.
 
----
+Cette version **n'est pas un scanner général d'ingrédients alimentaires ou de composition de produits**, contrairement à ce qu'indiquaient des descriptions antérieures. Les rubriques « produits » et « traitement » ne prouvent pas l'efficacité, l'innocuité ni la personnalisation médicale des conseils.
 
-## Démarrage, usage et limites
+## Comment l'explorer
 
-**Thème :** Applications du quotidien — information sur les produits.
+Le point d'entrée est `index.html`. Pour l'afficher sur votre machine :
 
-Le prototype est fourni comme application web autonome à partir de `index.html` (avec icône et manifeste). Pour le consulter localement, exécuter `python3 -m http.server 8000`. Les fonctions de caméra doivent généralement être utilisées sur HTTPS ou localhost ; les analyses IA peuvent exiger des accès externes.
+```sh
+python3 -m http.server 8000
+```
 
-**Précaution :** un score automatique de « toxicité » ou de « santé » n'est pas une validation toxicologique. Vérifier la liste INCI/ingrédients, les quantités, les allergies et les sources réglementaires avant toute décision. Ne pas envoyer d'informations personnelles sensibles à un service IA non vérifié.
+Ouvrir ensuite http://localhost:8000/. La caméra nécessite généralement **HTTPS ou localhost**, ainsi qu'une autorisation explicite. Certaines fonctions d'IA peuvent requérir un fournisseur ou une connexion externe.
 
-**Statut :** projet de démonstration, sans validation fonctionnelle ou expertise indépendante revendiquée dans cette mise à jour.
+## Précautions et niveau de validation
 
-[Voir le catalogue des projets](https://github.com/Nikoju1977).
+**Prototype de démonstration, non certifié comme dispositif médical.** Une photo ne permet pas de poser un diagnostic dermatologique fiable. Ne pas utiliser ses résultats pour choisir un traitement, remplacer une consultation ou exclure une lésion inquiétante. Vérifier les flux de données avant d'importer une image personnelle.
+
+La présente documentation décrit les contrôles et sections visibles dans le code, **sans validation fonctionnelle, clinique ni audit de sécurité**.
+
+[À quoi servent les autres projets du studio ?](https://github.com/Nikoju1977/Nikoju1977/blob/main/PROJECTS.md)
