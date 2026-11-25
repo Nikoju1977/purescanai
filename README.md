@@ -1,27 +1,87 @@
-# PureScan AI — exploration dermatologique
+# PureScan AI V6 — Studio Niko Design
 
-**Catégorie :** interface web expérimentale pour l'analyse visuelle de la peau · Studio Niko Design.
+**Experimental sequential vision-to-text orchestration for skin-image exploration — not a dermatology tool.**
 
-## Ce que fait l'application
+Un prototype d'orchestration multimodale qui sépare acquisition d'image, interprétation générative et génération cosmétique. La chaîne illustre la composition de requêtes IA, mais ne mesure pas des paramètres biologiques et ne constitue pas une consultation médicale.
 
-L'interface actuelle est intitulée **« PureScan AI — Dermatologue v6.0 »**. Elle propose l'accès à la caméra, un parcours de scan cutané, un lancement d'analyse dermatologique, une section rapport et des espaces de navigation consacrés au nettoyage, aux produits, à la routine, au traitement et au chat.
+![UI](https://img.shields.io/badge/UI-Vanilla_JS-F7DF1E) ![Vision](https://img.shields.io/badge/vision-Pixtral_remote-00897B) ![Pipeline](https://img.shields.io/badge/pipeline-3_sequential_calls-326CE5) ![Status](https://img.shields.io/badge/status-not_clinically_validated-orange) [![Licence](https://img.shields.io/badge/license-restricted-lightgrey)](LICENSE.md)
 
-Cette version **n'est pas un scanner général d'ingrédients alimentaires ou de composition de produits**, contrairement à ce qu'indiquaient des descriptions antérieures. Les rubriques « produits » et « traitement » ne prouvent pas l'efficacité, l'innocuité ni la personnalisation médicale des conseils.
+**STUDIO NIKO DESIGN** · Build smart. Stay lightweight. Create without limits.
 
-## Comment l'explorer
+[English overview](#english-overview) · [Quickstart](#quickstart--démarrage-rapide) · [Portfolio](https://github.com/Nikoju1977)
 
-Le point d'entrée est `index.html`. Pour l'afficher sur votre machine :
+> [Insérer ici un GIF de démonstration avec données synthétiques / Insert synthetic-data demo GIF here]
 
-```sh
-python3 -m http.server 8000
+> **Prototype non validé cliniquement.** Ne pas utiliser pour un diagnostic, une prescription, un triage, une décision de traitement ou une urgence. En France, danger immédiat : 15 ou 112. Inspection statique uniquement ; aucun nouveau test d'exécution, audit de sécurité, test fournisseur, benchmark, validation clinique ou vérification de déploiement n'a été effectué.
+
+## Fonctionnalités clés
+
+- Acquisition caméra, sélection de caméra, attente de disponibilité et capture JPEG limitée à 640 pixels sur le plus grand côté.
+- Trois étapes réseau : Pixtral vision, Mistral Large interprétation, Mistral Large routine cosmétique facultative en cas d'échec.
+- Sections rapport, nettoyage, produits, routine, traitement et chat ; leur présence ne valide pas les recommandations.
+- Chat contextuel utilisant les résultats précédents et un historique borné.
+
+## Architecture & algorithmes
+
+```mermaid
+flowchart TD
+ A[Camera / Canvas JPEG] --> B[Pixtral vision - remote]
+ B --> C[Generated JSON features]
+ C --> D[Mistral Large interpretation]
+ C --> E[Mistral Large cosmetic routine]
+ D --> E
+ D --> F[Unvalidated report UI]
+ E --> F
+ C --> G[Contextual chat - remote]
+ D --> G
+ E --> G
 ```
 
-Ouvrir ensuite http://localhost:8000/. La caméra nécessite généralement **HTTPS ou localhost**, ainsi qu'une autorisation explicite. Certaines fonctions d'IA peuvent requérir un fournisseur ou une connexion externe.
+| Fonction | Constat |
+| --- | --- |
+| `captureFrame` | Redimensionnement Canvas et encodage JPEG ; aucune mesure calibrée ni segmentation clinique. |
+| `callPixtral` | Requête `pixtral-12b-2409` avec photographie ; les valeurs structurées sont générées par le modèle, non mesurées par un capteur biologique. |
+| `callDerm` / `callClean` | Deux appels `mistral-large-latest` successifs utilisant les résultats précédents ; la troisième étape peut échouer sans interrompre le rapport principal. |
+| `safeJsonParse` | Parsing syntaxique du JSON, pas une validation complète du schéma, des unités, de la plausibilité ou de la vérité des résultats. |
 
-## Précautions et niveau de validation
+**Risques cliniques majeurs :** les scores de bactéries, champignons, sébum, hydratation et pathologies ne sont pas des mesures validées à partir d'une photo ordinaire. Les erreurs d'un modèle peuvent être propagées aux étapes suivantes ; il ne s'agit pas d'un consensus indépendant. Les prompts sollicitent diagnostic et traitement sous un rôle de dermatologue, alors que le prototype ne possède aucune validation clinique. Les classifications « clean beauty » ne démontrent ni toxicité ni innocuité. Ne pas suivre de traitements ou exclure une maladie à partir du rapport. Le projet n'est pas un scanner d'ingrédients alimentaires.
 
-**Prototype de démonstration, non certifié comme dispositif médical.** Une photo ne permet pas de poser un diagnostic dermatologique fiable. Ne pas utiliser ses résultats pour choisir un traitement, remplacer une consultation ou exclure une lésion inquiétante. Vérifier les flux de données avant d'importer une image personnelle.
+## Confidentialité et sécurité
 
-La présente documentation décrit les contrôles et sections visibles dans le code, **sans validation fonctionnelle, clinique ni audit de sécurité**.
+- La capture JPEG est envoyée à Mistral ; les résultats sont ensuite transmis aux étapes textuelles et au chat, avec les questions de l'utilisateur. Aucune anonymisation clinique garantie et aucune preuve de politique de conservation fournisseur.
+- Dans le parcours inspecté, la clé API du chat reste en mémoire de session (`chatApiKey`). La façade `safeStorage` utilisée ailleurs repose sur localStorage/repli mémoire, pas sur le chiffrement annoncé dans un commentaire. Aucun coffre patient chiffré n'est établi.
+- Des rapports construits dynamiquement utilisent `innerHTML` et des échappements partiels. Un audit du rendu, une validation de schéma stricte et une politique de contenu sont nécessaires ; le parsing JSON n'est pas une barrière XSS.
+- Google Fonts et API Mistral nécessitent Internet ; le service worker tente un enregistrement Blob, dont le fonctionnement n'est pas établi. L'accès caméra demande une permission. Ne pas utiliser de données médicales réelles, de visages privés ou de clés réelles dans la démonstration.
 
-[À quoi servent les autres projets du studio ?](https://github.com/Nikoju1977/Nikoju1977/blob/main/PROJECTS.md)
+## Référentiels et limites
+
+DICOM (pour l'imagerie concernée), ISO 13485 (qualité), IEC 62304 (cycle de vie logiciel), ISO 14971 (risques), RGPD (données personnelles) et FDA 21 CFR Part 11 (enregistrements électroniques réglementés) sont des pistes de qualification selon l'usage prévu et le cadre applicable. Aucun certificat, marquage CE, autorisation réglementaire, audit indépendant ou conformité à ces référentiels n'est revendiqué. Les licences logicielles ne constituent pas une autorisation d'usage clinique. Une revue par des professionnels qualifiés est indispensable avant tout usage médical.
+
+## Quickstart / Démarrage rapide
+
+Servir `index.html` depuis localhost avec `python3 -m http.server 8000`. Examiner le parcours sans clé réelle et sans photographie personnelle. Les appels distants exigent un compte autorisé et peuvent être facturés ; aucun compte ni résultat réel n'est testé ici.
+
+## Roadmap & contribution
+
+Propositions non terminées :
+
+- [ ] Neutraliser les diagnostics, traitements et scores biologiques non mesurés ; privilégier une description visuelle non médicale.
+- [ ] Valider strictement les réponses structurées, rendre les erreurs explicites et auditer le DOM.
+- [ ] Documenter et qualifier le consentement, la minimisation des images et les flux vers chaque étape et le chat.
+- [ ] Tester les échecs réseau, les permissions et la propagation d'erreurs avec réponses simulées et images synthétiques.
+
+**Première contribution / `good first issue` (label proposé, non créé ici) :** Proposer un test de réponse JSON invalide ou de score absent qui bloque la présentation d'une conclusion.
+
+Les retours sont bienvenus dans le cadre des droits existants. [Issues](https://github.com/Nikoju1977/purescanai/issues) pour les anomalies non sensibles. Ne jamais publier de données médicales, images identifiantes, secrets ou détails exploitables de vulnérabilité ; contacter le mainteneur en privé pour les signalements sensibles.
+
+## English overview
+
+PureScan AI V6 uses three sequential remote calls: Pixtral vision, Mistral Large interpretation and Mistral Large cosmetic routine, plus contextual chat. Outputs are generated, not calibrated biological measurements; errors can propagate across stages. Do not use its diagnoses, treatments or scores for medical decisions. Images, generated patient-related context and chat messages may be sent to the provider. JSON parsing is not clinical or security validation. Use synthetic data only.
+
+No new runtime, provider, security or clinical validation was performed for this documentation revision.
+
+## Licence & auteur / License & author
+
+[Notice de droits](LICENSE.md) © 2026 Studio Niko Design (Nikoju1977). Tous droits réservés pour les contributions originales concernées ; publication publique ne vaut pas licence open source. Les composants tiers gardent leurs droits. Aucun fichier de licence n'a été modifié.
+
+[Studio Niko Design](https://github.com/Nikoju1977)
