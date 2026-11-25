@@ -10,7 +10,7 @@ Un prototype d'orchestration multimodale qui sépare acquisition d'image, interp
 
 [English overview](#english-overview) · [Quickstart](#quickstart--démarrage-rapide) · [Portfolio](https://github.com/Nikoju1977)
 
-> [Insérer ici un GIF de démonstration avec données synthétiques / Insert synthetic-data demo GIF here]
+> Démonstration : images synthétiques uniquement. Aucun GIF ni résultat de test n'est revendiqué.
 
 > **Prototype non validé cliniquement.** Ne pas utiliser pour un diagnostic, une prescription, un triage, une décision de traitement ou une urgence. En France, danger immédiat : 15 ou 112. Inspection statique uniquement ; aucun nouveau test d'exécution, audit de sécurité, test fournisseur, benchmark, validation clinique ou vérification de déploiement n'a été effectué.
 
@@ -60,6 +60,23 @@ DICOM (pour l'imagerie concernée), ISO 13485 (qualité), IEC 62304 (cycle de vi
 ## Quickstart / Démarrage rapide
 
 Servir `index.html` depuis localhost avec `python3 -m http.server 8000`. Examiner le parcours sans clé réelle et sans photographie personnelle. Les appels distants exigent un compte autorisé et peuvent être facturés ; aucun compte ni résultat réel n'est testé ici.
+
+## Qualification proposée — intégrité du pipeline visuel
+
+**Usage expérimental uniquement :** exploration de la chaîne image-vers-texte sur images synthétiques. Neutraliser les conclusions diagnostiques et recommandations thérapeutiques avant toute démonstration destinée à des utilisateurs non spécialistes.
+
+| Contrôle proposé (non exécuté) | Critère attendu |
+| --- | --- |
+| Acquisition | Vérifier les dimensions de la capture et les permissions sur une scène fictive |
+| Réponse structurée | Rejeter JSON invalide, champs absents, types incompatibles et valeurs hors domaine |
+| Propagation | Interrompre les interprétations en aval si la première étape est invalide |
+| Erreur fournisseur | Afficher une indisponibilité, sans inventer de résultat ni assimiler une réponse partielle à une analyse complète |
+| Rendu et confidentialité | Vérifier le traitement des contenus non fiables, le consentement et les transferts de données sur réponses simulées |
+| Sécurité clinique | Ne présenter aucun score biologique généré comme une mesure, ni une routine comme prescription |
+
+Les trois appels successifs ne produisent pas une validation indépendante. Un JSON syntaxiquement valide ne garantit ni une mesure réelle ni une interprétation correcte. Les tests proposés ne sont pas des preuves d'efficacité clinique. Aucun appel au fournisseur n'a été réalisé pour cette révision.
+
+**English:** Proposed synthetic checks cover acquisition, schema validation, error propagation, safe rendering and privacy. Disable unvalidated diagnostic and treatment outputs. No new tests, provider calls or clinical validation were performed.
 
 ## Roadmap & contribution
 
